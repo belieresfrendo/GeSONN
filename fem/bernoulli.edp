@@ -1,0 +1,364 @@
+////////////////////////////////////////////////////////////////////////////
+//  Author: Amaury BF (ENSTA-Paris)                     Date: 12/04/2023  //
+//                                                                        //
+//  To run: FreeFem++ ptfixe.edp                                          //
+//                                                                        //
+//  FreeFem++ Finite Elements routine to:                                 //
+//      -> solve the direct relaxed Poisson controle problem              //
+//      -> fixed point algorithm                                          //
+////////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////
+//  macros
+////////////////////////////////////////////////////////
+
+
+macro grad(A) [dx(A), dy(A)]
+
+//////////////////////////////////////////////////////////
+//  Variables declaration
+//////////////////////////////////////////////////////////
+
+real exentricity = 0.5;
+real M = 1.e2;
+int niter = 50;
+real epsLbd = 1e-8;
+real epsA = 1e-14;
+real umin = 0;
+int n = 500;
+real xmin = -2.5 , xmax = 2.5, ymin = -2.5, ymax = 2.5, rIn = 0.5;
+
+//////////////////////////////////////////////////////////
+//  Meshes declaration
+//////////////////////////////////////////////////////////
+
+// maillage boîte
+border gamma1(t=0, 1){x = xmin + t*(xmax-xmin); y = ymin; label=1;}
+border gamma2(t=0, 1){x = xmax; y = ymin + t*(ymax-ymin); label=2;}
+border gamma3(t=0, 1){x = xmax - t*(xmax-xmin); y = ymax; label=3;}
+border gamma4(t=0, 1){x = xmin; y = ymax - t*(ymax-ymin); label=4;}
+border gammaIn(t=0, 1){
+    x = rIn / exentricity * cos(2*pi*t);
+    y = rIn * exentricity * sin(2*pi*t);
+    label=5;
+}
+mesh Dh = buildmesh(gamma1(n) + gamma2(n) + gamma3(n) + gamma4(n) + gammaIn(-n));
+
+//////////////////////////////////////////////////////////
+//  Discrete spaces and associated variables declaration
+//////////////////////////////////////////////////////////
+
+// approx par EF P2 de H10
+fespace VRh( Dh, P2 );
+VRh
+// solution du problème relaxé
+ua,
+// fonction test
+v,
+// terme source
+f,
+// |ua|
+uabs,
+// u à l'iteration k-1
+uprev;
+
+// approx par EF P0 de L infini
+fespace Linf( Dh, P0 );
+Linf
+// indicatrice
+a,
+// indicatrice au rang k-1
+aprev,
+// visualisation
+avisu;
+
+//////////////////////////////////////////////////////////
+//  Solvers
+//////////////////////////////////////////////////////////
+
+// Poisson with relaxation
+problem RelaxedPoisson( ua, v )=
+    int2d( Dh )( grad( ua )' * grad( v ) )
+    + int2d( Dh )( M * ( 1 - a ) * ua * v )
+    + on( 1, 2, 3, 4, ua = 0. )
+    + on( 5, ua = 1 );
+
+////////////////////////////////////////////////////////
+//  Initialisation des fonctions
+////////////////////////////////////////////////////////
+
+// indicatrice
+a = ( sqrt( x * x + y * y) <= 1. );
+
+////////////////////////////////////////////////////////
+//  Initialisation des variables du probleme de pt fixe
+////////////////////////////////////////////////////////
+
+// Calcul des mesures des différentes formes du problème
+real V0 = int2d( Dh )( a( x, y ) );
+real D = int2d( Dh )( 1 );
+cout << "test D : " << D << "\n";
+cout << "test V0 : " << V0 << "\n";
+
+// mk = min(uk^2), Mk = max(uk^2)
+real mk, Mk;
+// lambdak > 0, |{uk < lambda_tilde_k}| = D - V0
+real lambdaTildek;
+real[int] UR = ua[];
+
+// mesk = |{uk < lambda_tilde_k}| ~= D - V0
+real mesk;
+
+// abs( |ak| - V0 )
+real crit;
+// compteur d'itérations pour éviter un débordement de la dichotomie
+int cptLbd;
+
+// Energie au cours des itérations
+real energiek;
+real[int] Energie(niter);
+
+// Fonction coût au cours des itérations
+real Jk;
+real[int] J(niter);
+real[int] LambdaList(niter);
+real[int] contrainte(niter);
+
+// Variations de u en norme L2 au cours des itérations
+real[int] uVar(niter);
+uVar[0] = 1.;
+// variation en norme L2 entre uk et uk+1
+real evolU = 1.e14;
+
+// Variations de a en norme L1 au cours des itérations
+real[int] aVar(niter);
+aVar[0] = 1.;
+// variation de norme L1 entre ak et ak+1
+real evolA = 1.e14;
+
+// Résolution du problème relaxé
+RelaxedPoisson;
+
+plot(
+    a,
+    fill=true,
+    wait=false
+);
+
+energiek = - 0.5 * int2d ( Dh ) ( f * ua );
+Energie[0] = energiek;
+
+Jk = 0.5 * int2d( Dh )( grad(ua)' *  grad(ua) ) - int2d( Dh )( f * ua )
+    + 0.5 * M * int2d( Dh )( (1 - a) * ua * ua );
+J[0] = Jk;
+LambdaList[0] = lambdaTildek;
+contrainte[0] = 0;
+
+////////////////////////////////////////////////////////
+//  Boucle principale de l'algo de point fixe
+////////////////////////////////////////////////////////
+
+cout << "==========    INITIALISATION    ==========\n";
+cout << "variable duale, lambda : " << lambdaTildek << "\n";
+cout << "   -> energie : " << energiek << "\n";
+cout << "   -> fct cout : " << Jk << "\n";
+cout << "==========================================\n";
+
+uprev = ua;
+aprev = a;
+
+int i = 1;
+
+while ( i < niter && evolA > epsA){
+
+////////////////////////////////////////////////////////
+//  Calcul de uk associé à ak=ind(omegak)
+////////////////////////////////////////////////////////
+
+    uabs = abs(ua);
+    UR = uabs[];
+    
+    // affichage des résultats
+    //plot(ua, nbiso = 200, value = true, fill = true, wait = false, cmm = "Solution du probleme relaxe, energie : " + string( energiek ) );
+    plot(a, value = true, fill = true, wait = false, cmm = "Solution du probleme relaxe, energie : " + string( energiek ) );
+
+////////////////////////////////////////////////////////
+//  lambdak obtenu par dichotomie pour que |{uk<=lambda_tilde_k}| = D - V0
+////////////////////////////////////////////////////////
+
+    Mk = UR.max;
+    mk = UR.min;
+    lambdaTildek = Mk * 0.5 + mk * 0.5;
+    mesk = int2d( Dh )( ( uabs( x, y ) < lambdaTildek ) );
+    crit = abs( mesk - D + V0 );
+    cptLbd = 0;
+
+    while( crit > epsLbd && cptLbd < 30 ){
+
+        //cout<<"lambdaTildek : "<<lambdaTildek<<"\n";
+        //cout<<"V0 - |a| : "<< crit <<"\n";
+
+        // Dichotomie
+        if ( mesk > D - V0 ) {
+            Mk = lambdaTildek;
+        }
+        if ( mesk < D - V0 ) {
+            mk = lambdaTildek;
+        }
+        lambdaTildek = 0.5 * Mk + 0.5 * mk;
+
+        mesk = int2d( Dh )( ( uabs( x, y )  < lambdaTildek ) );
+        crit = abs ( mesk - D + V0 );
+        cptLbd = cptLbd + 1;
+
+    }
+
+////////////////////////////////////////////////////////
+// ak+1 = ind(uk^2(x)>=lambdak)
+////////////////////////////////////////////////////////
+
+    // mise à jour de ak-1
+    aprev = a;
+
+    // calcul de ak+1
+    a = ( uabs( x, y) > lambdaTildek );
+
+    // Calcul des variations de A
+    evolA = int2d(Dh)( abs(a - aprev) ) / int2d(Dh)( abs(aprev) );
+    aVar[i] = evolA;
+
+    // Calcul de uk+1
+    RelaxedPoisson;
+
+    // Calcul des variations de u
+    evolU = sqrt( int2d(Dh)( ( ua - uprev ) * ( ua - uprev ) ) / int2d(Dh)( uprev * uprev ) );
+    uVar[i] = evolU;
+
+    // mise à jour de uk-1
+    uprev = ua;
+
+    // calcul de l'energie au rang k+1
+    energiek = - 0.5 * int2d( Dh )( f( x, y ) * ua( x, y ) );
+    Energie[i] = energiek;
+
+    // Mise à jour de la fonction cout
+    Jk = 0.5 * int2d( Dh )( grad(ua)' *  grad(ua) ) - int2d( Dh )( f * ua )
+        + 0.5 * M * int2d( Dh )( (1 - a) * ua * ua );
+    J[i] = Jk;
+    LambdaList[i] = lambdaTildek;
+    contrainte[i] = int2d(Dh)(a) - V0;
+
+    // affichage des résultats
+    cout << "\nITERATION " << i << " -------------------------------------\n";
+    cout << "PARAMETRES PHYSIQUES" << endl;
+    cout << "   -> ligne de niveau, lambda : " << lambdaTildek * lambdaTildek << "\n";
+    cout << "   -> energie : " << energiek << "\n";
+    cout << "   -> fct cout : " << Jk << "\n";
+    cout << "EVALUATION DE LA CONVERGENCE" << endl;
+    cout << "   -> |a| - V0 : " << int2d( Dh )( a( x, y) ) - V0 << "\n";
+    cout << "   -> taux de variation de u en norme L2 : " << evolU << endl;
+    cout << "   -> taux de variation de a en norme L1 : " << evolA << endl;
+
+    i++;
+
+}
+
+////////////////////////////////////////////////////////
+//  ecriture dans les fichiers de sortie
+////////////////////////////////////////////////////////
+
+plot(
+    a,
+    fill=true,
+    wait=true
+);
+plot(
+    ua,
+    fill=true,
+    value=true,
+    wait=true
+);
+
+aprev = (sqrt( x * x * 0.5 * 0.5 + y * y * 2 * 2 ) <= 1.);
+avisu = a - aprev;
+
+plot(
+    avisu,
+    fill=true,
+    wait=true
+);
+
+{
+    real npts = 200;
+    ofstream ofs("./data/bernoulli_a.csv");
+    ofs     << "x"
+            << ";"
+            << "y"
+            << ";"
+            << "a"
+            << endl;
+
+    real xi, yj;
+    for (int i=0; i<npts; i++){
+        xi = xmin + i/npts * (xmax - xmin);
+        for (int j=0; j<npts; j++){
+            yj = ymin + j/npts * (ymax - ymin);
+            ofs     << xi
+                    << ";"
+                    << yj
+                    << ";"
+                    << a(xi, yj)
+                    << endl;
+        }
+    }
+}
+
+{
+    real npts = 200;
+    ofstream ofs("./data/bernoulli_u.csv");
+    ofs     << "x"
+            << ";"
+            << "y"
+            << ";"
+            << "u"
+            << endl;
+
+    real xi, yj;
+    for (int i=0; i<npts; i++){
+        xi = xmin + i/npts * (xmax - xmin);
+        for (int j=0; j<npts; j++){
+            yj = ymin + j/npts * (ymax - ymin);
+            ofs     << xi
+                    << ";"
+                    << yj
+                    << ";"
+                    << ua(xi, yj)
+                    << endl;
+        }
+    }
+}
+
+{
+    ofstream name("./data/err.csv");
+
+    name << "aVarRel,uVarRel,Enerk,Jk,lambda,contrainte,\n";
+
+    for (int i = 0; i < niter; i++){
+
+        name    << aVar[i]
+                << ","
+                << uVar[i]
+                << ","
+                << Energie[i]
+                << ","
+                << J[i]
+                << ","
+                << LambdaList[i]
+                << ","
+                << contrainte[i]
+                << ","
+                << "\n";
+    }
+}

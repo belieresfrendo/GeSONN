@@ -1,3 +1,21 @@
+Metadata-Version: 2.1
+Name: gesonn
+Version: 0.0.0
+Summary: This library implements some machine learning tools for geometric shape optimization
+Author: Amaury Bélières Frendo
+License: MIT
+Project-URL: Homepage, https://github.com/belieresfrendo/GeSONN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: matplotlib
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: torch==2.1.2
+
 # GeSONN
 
 Welcome on the git page of GeSONN, the open source code for GEometric Shape Optimization with Neural Networks.

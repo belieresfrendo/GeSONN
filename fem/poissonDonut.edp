@@ -1,0 +1,62 @@
+// See https://doc.freefem.org/tutorials/poisson.html for more information
+
+// Parameters
+real rIn = 0.5;
+real rOut = 1.;
+real f=1.;
+int n = 500;
+real xmin=-1, xmax=1, ymin=-1, ymax=1;
+
+// Mesh
+border gammaIn(t=0, 1){x = rIn * cos(2*pi*t); y = rIn * sin(2*pi*t); label=1;}
+border gammaOut(t=0, 1){x = rOut * cos(2*pi*t); y = rOut * sin(2*pi*t); label=2;}
+mesh Th = buildmesh(gammaOut(n) + gammaIn(-n));
+
+// Fespace
+fespace Uh(Th, P1);
+Uh u, uh;
+
+// Macro
+macro grad(u) [dx(u), dy(u)] //
+
+// Problem
+problem Laplacian (u, uh)
+	= int2d(Th)(
+		  grad(u)' * grad(uh)
+	)
+	- int2d(Th)(
+		  f * uh
+	)
+	+ on(1, 2, u=0)
+	;
+
+// Solve
+Laplacian;
+
+{
+    real npts = 200;
+    ofstream ofs("./data/donut.csv");
+    ofs    << "x"
+            << ";"
+            << "y"
+            << ";"
+            << "u"
+            << endl;
+
+    real xi, yj;
+    for (int i=0; i<npts; i++){
+        xi = xmin + i/npts * (xmax - xmin);
+        for (int j=0; j<npts; j++){
+            yj = ymin + j/npts * (ymax - ymin);
+            ofs    << xi
+                    << ";"
+                    << yj
+                    << ";"
+                    << u(xi, yj)
+                    << endl;
+        }
+    }
+}
+
+// Plot
+plot(u, fill=true);

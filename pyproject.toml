@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gesonn"
+authors = [{ name = "Amaury Bélières Frendo" }]
+description = "This library implements some machine learning tools for geometric shape optimization"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+dependencies = ["matplotlib", "pandas", "numpy", "torch == 2.1.2"]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/belieresfrendo/GeSONN"
+
+# [project.optional-dependencies]
+# test = ["pytest", "pytest-cov"]
+# doc = ["sphinx", "sphinx-autobuild", "furo"]
+# examples = ["h5py", "PyYAML", "scikit-learn"]
+
+# [tool.setuptools]
+# include-package-data = true
+# license-files = ["LICENSE"]
+# package-dir = { "" = "src"}
+
+# [tool.setuptools.packages.find]
+# where = ["src", "examples/com1PINNs"]
+# namespaces = false
+
+# [tool.setuptools.dynamic.version]
+# attr = "gesonn.__version__"
