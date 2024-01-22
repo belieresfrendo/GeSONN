@@ -50,7 +50,7 @@ def main_poisson_test(testsDict, source_term):
                     epochs=1_000, n_collocation=10_000, plot_history=False
                 )
             else:
-                network.train(epochs=10_000, n_collocation=50_000, plot_history=False)
+                tps = network.train(epochs=10_000, n_collocation=100_000, plot_history=False)
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = poisson.PINNs(PINNsDict=simuDict)

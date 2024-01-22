@@ -35,8 +35,8 @@ problem Laplacian (u, uh)
 	+ on(1, u=0)
 	;
 
-f = 1;
-// f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
+// f = 1;
+f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
 // Solve
 Laplacian;
 

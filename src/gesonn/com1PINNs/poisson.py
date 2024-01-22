@@ -77,8 +77,8 @@ class PDE_Forward(nn.DataParallel):
 
 class PINNs:
     DEFAULT_PINNS_DICT = {
-        "learning_rate": 5e-2,
-        "layer_sizes": [2, 10, 20, 10, 1],
+        "learning_rate": 5e-3,
+        "layer_sizes": [2, 10, 20, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
         "file_name": "default",
@@ -241,7 +241,7 @@ class PINNs:
         u = self.get_u(x, y)
 
         # terme source
-        f = sourceTerms.get_f(x, y, name=self.source_term)
+        f = sourceTerms.get_f(*metricTensors.apply_symplecto(x, y, name=self.name_symplecto), name=self.source_term)
 
         return f * u
 
