@@ -1,24 +1,23 @@
 // See https://doc.freefem.org/tutorials/poisson.html for more information
 
 // Parameters
-real a = 0.5;
-
 real rIn = 0.5;
 real rOut = 1.;
 int n = 500;
-real xmin=-1, xmax=1, ymin=-1, ymax=1;
+real a = 0.5;
+real xmin=-a, xmax=a, ymin=-1/a, ymax=1/a;
 
 // Mesh
-border gammaIn(t=0, 1){x = rIn * cos(2*pi*t); y = rIn * sin(2*pi*t); label=1;}
-border gammaOut(t=0, 1){x = rOut * cos(2*pi*t); y = rOut * sin(2*pi*t); label=2;}
+border gammaIn(t=0, 1){x = rIn * a * cos(2*pi*t); y = rIn * 1/a * sin(2*pi*t); label=1;}
+border gammaOut(t=0, 1){x = rOut * a * cos(2*pi*t); y = rOut * 1/a * sin(2*pi*t); label=2;}
 mesh Th = buildmesh(gammaOut(n) + gammaIn(-n));
 
 // Fespace
 fespace Uh(Th, P1);
 Uh u, uh, f;
 
-// f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
-f=1;
+f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
+// f=1.;
 
 // Macro
 macro grad(u) [dx(u), dy(u)] //
@@ -39,7 +38,7 @@ Laplacian;
 
 {
     real npts = 200;
-    ofstream ofs("./data/donut.csv");
+    ofstream ofs("./data/donut_ellipse.csv");
     ofs    << "x"
             << ";"
             << "y"

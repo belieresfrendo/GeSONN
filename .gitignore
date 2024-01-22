@@ -1,0 +1,5 @@
+# Ignorer tous les DS_store
+*.DS_store
+
+# Ignorer le pycache
+*__pycache__*

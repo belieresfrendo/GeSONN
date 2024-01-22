@@ -288,7 +288,7 @@ plot(
 
 {
     real npts = 200;
-    ofstream ofs("./data/ellipse_a.csv");
+    ofstream ofs("./data/ptfixe_a.csv");
     ofs     << "x"
             << ";"
             << "y"
@@ -313,7 +313,7 @@ plot(
 
 {
     real npts = 200;
-    ofstream ofs("./data/ellipse_u.csv");
+    ofstream ofs("./data/ptfixe_u.csv");
     ofs     << "x"
             << ";"
             << "y"

@@ -8,16 +8,21 @@ Install [Git](https://about.gitlab.com/free-trial/devsecops/?utm_medium=cpc&utm_
 
 ## Install and setup GeSONN
 
-This is a quick guide on how to install GeSONN and the required dependencies on your machine. GeSONN is developed on macOS machines (version 12.6.7) with recent Python versions > 3.11. These instructions assume you are familiar with working in a terminal. This guide is currently described for macOS only, but expert users should be able to adapt it to Linux or Windows.
-
-## Install the project
+This is a quick guide on how to install GeSONN and the required dependencies on your machine. GeSONN is developed on macOS machines (version 12.6.7) with recent Python versions > 3.11. These instructions assume you are familiar with working in a terminal. This guide is currently described for macOS only, but should be easily adaptable to Linux or Windows.
 
 ```bash
 git clone git@github.com:belieresfrendo/GeSONN.git
 cd GeSONN
 ```
 
-## Install the package
+### Create a python virtual environment
+
+```
+python3 -m venv venv_gesonn
+source venv_gesonn/bin/activate
+```
+
+### Install the package
 
 ```bash
 pip install -e .

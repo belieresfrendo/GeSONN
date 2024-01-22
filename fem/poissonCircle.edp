@@ -10,11 +10,13 @@
 
 // Parameters
 real a = 0.5;
+
+
 int n = 500;
-real xmin=-a, xmax=a, ymin=-1/a, ymax=1/a;
+real xmin=-1, xmax=1, ymin=-1, ymax=1;
 
 // Mesh
-border gamma(t=0, 1){x = a*cos(2*pi*t); y = 1/a*sin(2*pi*t); label=1;}
+border gamma(t=0, 1){x = cos(2*pi*t); y = sin(2*pi*t); label=1;}
 mesh Th = buildmesh(gamma(n));
 
 // Fespace
@@ -35,14 +37,14 @@ problem Laplacian (u, uh)
 	+ on(1, u=0)
 	;
 
-f = 1;
+f=1;
 // f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
 // Solve
 Laplacian;
 
 {
     real npts = 200;
-    ofstream ofs("./data/ellipse.csv");
+    ofstream ofs("./data/circle.csv");
     ofs     << "x"
             << ";"
             << "y"
