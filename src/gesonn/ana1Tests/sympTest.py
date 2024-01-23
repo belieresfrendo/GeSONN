@@ -1,17 +1,13 @@
 # imports
 import os
 import torch
-import matplotlib.pyplot as plt
-from matplotlib import rc
-import pandas as pd
 
 # local imports
 from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
-rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-rc("text", usetex=True)
+
 try:
     import torchinfo
 
@@ -28,7 +24,6 @@ def main_symp_test(testsDict):
 
         # Chargement de la solution PINNs
         simuPath = "./../outputs/SympNets/net/" + simuDict["file_name"] + ".pth"
-        simuDict
         # Chargement du PINNs
         if not os.path.isfile(simuPath):
             print(f"Empty file for simulation {simu_name}. Computation launched")

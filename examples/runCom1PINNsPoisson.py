@@ -53,12 +53,10 @@ if __name__ == "__main__":
             tps = network.train(
                 epochs=epochs, n_collocation=n_collocation, plot_history=True
             )
-            print(f"Computational time: {str(tps)[:4]} sec.")
         else:
-            network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+        print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
         network = poisson.PINNs()
-
-        for _ in range(1):
-            network.plot_result(random=True, derivative=True)
+        network.plot_result()

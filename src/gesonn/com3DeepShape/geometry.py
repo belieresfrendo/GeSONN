@@ -22,14 +22,17 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # imports
 import os
 import copy
+import time
 import torch
 import torch.nn as nn
 import pandas as pd
 
 # local imports
-from soviets.com1PINNs import poisson
-from soviets.com2SympNets import G
-from soviets.out1Plot import colormaps
+from gesonn.com1PINNs import poisson
+from gesonn.com2SympNets import G
+from gesonn.out1Plot import makePlots
+from gesonn.com1PINNs import boundary_conditions as bc
+from gesonn.com1PINNs import sourceTerms
 
 try:
     import torchinfo
@@ -49,25 +52,73 @@ print(f"torch loaded; device is {device}; script is deepGeometry.py")
 
 
 class Geo_Net:
-    # constructeur
-    def __init__(self, deepGeoDict, **kwargs):
-        self.rho_min, self.rho_max = deepGeoDict["rho_min"], deepGeoDict["rho_max"]
-        self.theta_min, self.theta_max = kwargs.get("theta_min", 0), kwargs.get(
-            "theta_max", 2 * torch.pi
-        )
-        self.Vol = torch.math.pi * (self.rho_max**2 - self.rho_min**2)
+    DEFAULT_DEEP_GEO_DICT = {
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
+        "layer_sizes": [2, 10, 20, 10, 1],
+        "nb_of_networks": 2,
+        "networks_size": 5,
+        "rho_min": 0,
+        "rho_max": 1,
+        "file_name": "default",
+        "to_be_trained": True,
+        "source_term": "one",
+        "boundary_condition": "dirichlet_homogene",
+    }
 
-        self.file_name = "./../data/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
+    # constructeur
+    def __init__(self, **kwargs):
+        deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
+
+        if deepGeoDict.get("pde_learning_rate") == None:
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
+        if deepGeoDict.get("sympnet_learning_rate") == None:
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
+        if deepGeoDict.get("layer_sizes") == None:
+            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
+        if deepGeoDict.get("nb_of_networks") == None:
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
+                "nb_of_networks"
+            ]
+        if deepGeoDict.get("networks_size") == None:
+            deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
+        if deepGeoDict.get("rho_min") == None:
+            deepGeoDict["rho_min"] = self.DEFAULT_DEEP_GEO_DICT["rho_min"]
+        if deepGeoDict.get("rho_max") == None:
+            deepGeoDict["rho_max"] = self.DEFAULT_DEEP_GEO_DICT["rho_max"]
+        if deepGeoDict.get("file_name") == None:
+            deepGeoDict["file_name"] = self.DEFAULT_DEEP_GEO_DICT["file_name"]
+        if deepGeoDict.get("source_term") == None:
+            deepGeoDict["source_term"] = self.DEFAULT_DEEP_GEO_DICT["source_term"]
+        if deepGeoDict.get("boundary_condition") == None:
+            deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
+                "boundary_condition"
+            ]
+        if deepGeoDict.get("to_be_trained") == None:
+            deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
+
+
+        # Storage file
+        self.file_name = (
+            "./../../../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
+        )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
-
+        # Learning rate
         self.pde_learning_rate = deepGeoDict["pde_learning_rate"]
         self.sympnet_learning_rate = deepGeoDict["sympnet_learning_rate"]
-
-        # taille des différentes couches du réseau de neurones
+        # Layer parameters
         self.layer_sizes = deepGeoDict["layer_sizes"]
         self.nb_of_networks = deepGeoDict["nb_of_networks"]
         self.networks_size = deepGeoDict["networks_size"]
+        # Geometry of the shape
+        self.rho_min, self.rho_max = deepGeoDict["rho_min"], deepGeoDict["rho_max"]
+        self.theta_min, self.theta_max = 0, 2 * torch.pi
+        self.Vol = torch.pi * self.rho_max**2
+        # Source term of the Poisson problem
+        self.source_term = deepGeoDict["source_term"]
+        # Boundary condition of the Poisson problem
+        self.boundary_condition = deepGeoDict["boundary_condition"]
 
         self.create_networks()
         self.load(self.file_name)
@@ -275,7 +326,7 @@ class Geo_Net:
         u = self.get_u(x, y)
 
         # terme source
-        f = self.get_f(*self.apply_symplecto(x, y))
+        f = sourceTerms.get_f(*self.apply_symplecto(x, y), name=self.source_term)
 
         return f * u
 
@@ -286,18 +337,15 @@ class Geo_Net:
             x_net, y_net = x_net, y_net + self.down_nets[i](x_net)
         return x_net, y_net
 
-    def network_BC_mul(self, x, y):
-        return x**2 + y**2 - self.rho_max**2
-
     def get_u(self, x, y):
-        return self.u_net(*self.apply_symplecto(x, y)) * self.network_BC_mul(x, y)
-
-    def get_f(self, x, y):
-        # return 1
-        x = x + torch.sin(y)
-        y = y - torch.cos(x)
-        r2 = (x * 0.5) ** 2 + (1 / 0.5 * y) ** 2
-        return torch.exp(1 - r2)
+        return bc.apply_BC(
+            self.u_net(*self.apply_symplecto(x, y)),
+            x,
+            y,
+            self.rho_min,
+            self.rho_max,
+            name =self.boundary_condition,
+        )
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -318,26 +366,6 @@ class Geo_Net:
 
         self.x_collocation = rho_collocation * torch.cos(self.theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(self.theta_collocation)
-
-        self.zeros = torch.zeros(shape, dtype=torch.double, device=device)
-        self.ones = torch.ones(shape, dtype=torch.double, device=device)
-
-    def make_border_collocation(self, n_collocation):
-        shape = (n_collocation, 1)
-
-        rho_border_collocation = self.rho_max * torch.ones(
-            shape, dtype=torch.double, device=device
-        )
-        theta_border_collocation = self.random(
-            self.theta_min, self.theta_max, shape, requires_grad=True
-        )
-
-        self.x_border_collocation = rho_border_collocation * torch.cos(
-            theta_border_collocation
-        )
-        self.y_border_collocation = rho_border_collocation * torch.sin(
-            theta_border_collocation
-        )
 
     def get_mes_border(self):
         n = 10_000
@@ -369,6 +397,7 @@ class Geo_Net:
             best_loss_value = 1e10
 
         # boucle principale de la descnet ede gradient
+        tps1 = time.time()
         for epoch in range(epochs):
             # mise à 0 du gradient
             for i in range(self.nb_of_networks):
@@ -433,6 +462,7 @@ class Geo_Net:
 
                 best_u_net = copy.deepcopy(self.u_net.state_dict())
                 best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+        tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
 
@@ -458,113 +488,46 @@ class Geo_Net:
         if plot_history:
             self.plot_result(epoch)
 
+        return tps2 - tps1
+
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def plot_result(self, derivative=False, random=False):
-        import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(2, 2)
-
-        ax[0, 0].plot(self.loss_history)
-        ax[0, 0].set_yscale("symlog", linthresh=1e-4)
-        ax[0, 0].set_title("loss history")
+        makePlots.loss(self.loss_history)
 
         n_visu = 50_000
+        self.make_collocation(n_visu)
+
+        xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
+        u_pred = self.get_u(self.x_collocation, self.y_collocation)
 
         x_border = self.rho_max * torch.cos(self.theta_collocation)
         y_border = self.rho_max * torch.sin(self.theta_collocation)
         xT_border, yT_border = self.apply_symplecto(x_border, y_border)
+        dn_u, _, _ = self.get_dn_u(x_border, y_border)
 
-        self.make_collocation(n_visu)
-        xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
-        dn_u, nx, ny = self.get_dn_u(x_border, y_border)
 
-        xT = xT.detach().cpu()
-        yT = yT.detach().cpu()
-
-        ax[1, 0].quiver(
-            xT_border.detach().cpu(),
+        makePlots.edp(
+            xT_border.detach().cpu(), 
             yT_border.detach().cpu(),
-            nx.detach().cpu(),
-            ny.detach().cpu(),
-            label="normale sortante",
-            color="red",
+            dn_u.detach().cpu(),
+            "gradient normal",
         )
-        im = ax[1, 0].scatter(
-            xT_border.detach().cpu(),
-            yT_border.detach().cpu(),
-            s=10,
-            c=dn_u.detach().cpu(),
-            cmap=colormaps.make_colormap(),
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            sourceTerms.get_f(
+                *self.apply_symplecto(self.x_collocation, self.y_collocation),
+                name=self.source_term
+            ).detach().cpu(),
+            "terme source",
         )
-
-        fig.colorbar(im, ax=ax[1, 0])
-        ax[1, 0].legend()
-        ax[1, 0].set_title("forme optimale")
-        ax[1, 0].set_aspect("equal")
-
-        im = ax[0, 1].scatter(
-            xT,
-            yT,
-            s=5,
-            c = self.get_f(xT, yT).detach().cpu(),
-            cmap=colormaps.make_colormap(),
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred.detach().cpu(),
+            "EDP",
         )
-        ax[0, 1].set_title("terme source")
-        ax[0, 1].set_aspect("equal")
-        fig.colorbar(im, ax=ax[0, 1])
-
-        im = ax[1, 1].scatter(
-            xT,
-            yT,
-            s=5,
-            c=u_pred,
-            cmap=colormaps.make_colormap(),
-        )
-        fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("solution approchée de l'EDP")
-        ax[1, 1].set_aspect("equal")
-
-        # # Chargement de la solution FreeFem++
-        # fem_path = "./../fem/data/pt_fixe.csv"
-        # if os.path.isfile(fem_path):
-        #     dict = pd.read_csv(fem_path, delimiter=";")
-        # else:
-        #     fem_path = "./../../fem/data/pt_fixe.csv"
-        #     if os.path.isfile(fem_path):
-        #         dict = pd.read_csv(fem_path, delimiter=";")
-        #     else :
-        #         raise FileNotFoundError("Could not find fem solution storage file")
-
-        # X = torch.tensor(dict["x"], requires_grad=True, device=device)[:, None]
-        # Y = torch.tensor(dict["y"], requires_grad=True, device=device)[:, None]
-        # Afem = torch.tensor(dict["a"], device=device)[:, None].detach().cpu()
-
-        # Affichage
-
-        # im = ax[0, 1].scatter(
-        #     X.detach().cpu(),
-        #     Y.detach().cpu(),
-        #     s=5,
-        #     c=Afem,
-        #     cmap=colormaps.make_colormap(),
-        #     label="a_{fem}",
-        # )
-        # ax[0, 1].set_title("FEM")
-        # ax[0, 1].set_aspect("equal")
-        # fig.colorbar(im, ax=ax[0, 1])
-        # ax[0, 1].scatter(
-        #     xT_border.detach().cpu(),
-        #     yT_border.detach().cpu(),
-        #     s=10,
-        #     label="forme optimale",
-        #     color="green",
-        # )
-        # ax[0, 1].legend()
-
-        # print(self.get_mes_border().cpu())
-
-        plt.show()

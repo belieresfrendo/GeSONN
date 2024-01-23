@@ -19,6 +19,7 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # imports
 import os
 import copy
+import time
 import torch
 import torch.nn as nn
 
@@ -294,6 +295,7 @@ class Symp_Net:
             best_loss_value = 1e10
 
         # boucle principale de la descnet ede gradient
+        tps1 = time.time()
         for epoch in range(epochs):
             # mise à 0 du gradient
             for i in range(self.nb_of_networks):
@@ -352,6 +354,7 @@ class Symp_Net:
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)
                 best_down_nets = self.copy_sympnet(self.down_nets)
                 best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+        tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
 
@@ -376,6 +379,8 @@ class Symp_Net:
             self.plot_result()
             hausdorff_error = self.get_hausdorff_error()
             print("Hausdorff error: ", hausdorff_error)
+
+        return tps2 - tps1
 
     @staticmethod
     def copy_sympnet(to_be_copied):
@@ -410,7 +415,7 @@ class Symp_Net:
 
         makePlots.loss(self.loss_history)
 
-        n_shape = 10000
+        n_shape = 10_000
         self.make_collocation(n_shape)
 
         x_ex, y_ex = metricTensors.apply_symplecto(

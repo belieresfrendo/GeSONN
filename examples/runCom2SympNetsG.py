@@ -1,11 +1,6 @@
 # imports
 import os
 import torch
-from pathlib import Path
-import sys
-
-path_root = Path(__file__).parents[2]
-sys.path.append(str(path_root))
 
 # local imports
 from gesonn.com2SympNets import G
@@ -14,6 +9,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
 
 if __name__ == "__main__":
+
+    #==============================================================
+    # Parameters to be modified freely by the user
+    #==============================================================
+
     train = True
     # train = False
 
@@ -33,6 +33,10 @@ if __name__ == "__main__":
     new_training = False
     # new_training = True
 
+    #==============================================================
+    # End of the modifiable area
+    #==============================================================
+
     if train:
         if new_training:
             try:
@@ -45,16 +49,15 @@ if __name__ == "__main__":
         network = G.Symp_Net(SympNetsDict=SympNetsDict)
 
         if device.type == "cpu":
-            network.train(
+            tps = network.train(
                 epochs=epochs, n_collocation=n_collocation, plot_history=True
             )
         else:
-            network.train(
+            tps = network.train(
                 epochs=epochs, n_collocation=n_collocation, plot_history=True
             )
+        print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
         network = G.Symp_Net()
-
-        for _ in range(1):
-            network.plot_result(random=True, derivative=True)
+        network.plot_result()
