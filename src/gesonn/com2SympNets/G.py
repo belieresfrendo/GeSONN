@@ -1,13 +1,10 @@
 """
 Author:
-    A BELIERES FRENDO (ENSTA Paris)
+    A BELIERES FRENDO (IRMA)
 Date:
     05/05/2023
 
-To run:
-    python3 pdeSymplec.py
-
-ML for symplectomorphism
+Machine learning code for symplectic maps
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
@@ -27,9 +24,11 @@ import torch.nn as nn
 
 # local imports
 from gesonn.com1PINNs import metricTensors
+from gesonn.out1Plot import makePlots
 
 try:
     import torchinfo
+
     no_torchinfo = False
 except ModuleNotFoundError:
     no_torchinfo = True
@@ -82,40 +81,62 @@ class Symp_Net_Forward(nn.DataParallel):
 
 
 class Symp_Net:
-
     DEFAULT_SYMPNETS_DICT = {
-        "learning_rate": 1e-3,
-        "nb_of_networks": 6,
-        "networks_size": 10,
+        "learning_rate": 1e-2,
+        "nb_of_networks": 2,
+        "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "bizaroid",
+        "file_name": "default",
         "symplecto_name": "bizaroid",
         "to_be_trained": True,
     }
-    
+
     # constructeur
     def __init__(self, **kwargs):
         SympNetsDict = kwargs.get("SympNetsDict", self.DEFAULT_SYMPNETS_DICT)
 
-        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
-        self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.Vol = torch.pi * self.rho_max**2
+        if SympNetsDict.get("learning_rate") == None:
+            SympNetsDict["learning_rate"] = self.DEFAULT_SYMPNETS_DICT["learning_rate"]
+        if SympNetsDict.get("nb_of_networks") == None:
+            SympNetsDict["nb_of_networks"] = self.DEFAULT_SYMPNETS_DICT[
+                "nb_of_networks"
+            ]
+        if SympNetsDict.get("networks_size") == None:
+            SympNetsDict["networks_size"] = self.DEFAULT_SYMPNETS_DICT["networks_size"]
+        if SympNetsDict.get("rho_min") == None:
+            SympNetsDict["rho_min"] = self.DEFAULT_SYMPNETS_DICT["rho_min"]
+        if SympNetsDict.get("rho_max") == None:
+            SympNetsDict["rho_max"] = self.DEFAULT_SYMPNETS_DICT["rho_max"]
+        if SympNetsDict.get("file_name") == None:
+            SympNetsDict["file_name"] = self.DEFAULT_SYMPNETS_DICT["file_name"]
+        if SympNetsDict.get("symplecto_name") == None:
+            SympNetsDict["symplecto_name"] = self.DEFAULT_SYMPNETS_DICT[
+                "symplecto_name"
+            ]
+        if SympNetsDict.get("to_be_trained") == None:
+            SympNetsDict["to_be_trained"] = self.DEFAULT_SYMPNETS_DICT["to_be_trained"]
 
+        # Storage file
         self.file_name = (
-            "./../data/SympNets/net/GSympNet_" + SympNetsDict["file_name"] + ".pth"
+            "./../../../outputs/SympNets/net/" + SympNetsDict["file_name"] + ".pth"
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
-
+        # Learning rate
         self.learning_rate = SympNetsDict["learning_rate"]
-
-
-        # taille des différentes couches du réseau de neurones
+        # Layers parameters
         self.nb_of_networks = SympNetsDict["nb_of_networks"]
         self.networks_size = SympNetsDict["networks_size"]
-
+        # Geometry of the shape
+        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
+        self.theta_min, self.theta_max = 0, 2 * torch.pi
+        self.Vol = torch.pi * self.rho_max**2
         self.name_symplecto = SympNetsDict["symplecto_name"]
+
+        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
+        self.theta_min, self.theta_max = 0, 2 * torch.pi
+        self.Vol = torch.pi * self.rho_max**2
 
         self.create_networks()
         self.load(self.file_name)
@@ -124,9 +145,7 @@ class Symp_Net:
 
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(nn.DataParallel(Symp_Net_Forward(self.networks_size)).to(device))
-        optims.append(
-            torch.optim.Adam(nets[i].parameters(), lr=self.learning_rate)
-        )
+        optims.append(torch.optim.Adam(nets[i].parameters(), lr=self.learning_rate))
 
     def create_networks(self):
         # réseau relatif au symplecto
@@ -288,11 +307,12 @@ class Symp_Net:
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
 
-                x_ex, y_ex = metricTensors.apply_symplecto(self.x_collocation, self.y_collocation, name=self.name_symplecto)
+                x_ex, y_ex = metricTensors.apply_symplecto(
+                    self.x_collocation, self.y_collocation, name=self.name_symplecto
+                )
                 x_net, y_net = self.apply_symplecto(
                     self.x_collocation, self.y_collocation
                 )
-
                 self.loss = (
                     ((x_ex - x_net) ** 2 + (y_ex - y_net) ** 2).sum()
                     / n_collocation
@@ -354,55 +374,50 @@ class Symp_Net:
 
         if plot_history:
             self.plot_result()
+            hausdorff_error = self.get_hausdorff_error()
+            print("Hausdorff error: ", hausdorff_error)
 
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, derivative=False, random=False):
-        import matplotlib.pyplot as plt
-        from matplotlib import rc
+    def get_hausdorff_error(self, n_pts=10_000):
 
-        rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-        rc("text", usetex=True)
+        import scipy.spatial.distance as dist
+        import numpy as np
 
-        _, ax = plt.subplots(2, 2)
-        ax[0, 0].semilogy(self.loss_history)
-        ax[0, 0].set_title("loss history")
+        self.make_collocation(n_pts)
+
+        x_ex, y_ex = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, name=self.name_symplecto
+        )
+        x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation)
+
+        X_net = []
+        X_ex = []
+        for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+            X_net.append((x, y))
+        for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+            X_ex.append((x, y))
+
+        X_net = np.array(X_net)
+        X_ex = np.array(X_ex)
+
+        return max(dist.directed_hausdorff(X_net, X_ex)[0], dist.directed_hausdorff(X_ex, X_net)[0])
+
+
+    def plot_result(self):
+
+        makePlots.loss(self.loss_history)
 
         n_shape = 10000
         self.make_collocation(n_shape)
 
-        x_ex, y_ex = metricTensors.apply_symplecto(self.x_collocation, self.y_collocation, name = self.name_symplecto)
+        x_ex, y_ex = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, name=self.name_symplecto
+        )
         x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation)
 
-        ax[0, 1].scatter(
-            self.x_collocation.detach().cpu(),
-            self.y_collocation.detach().cpu(),
-            s=1,
-            label="cercle",
-        )
-        ax[0, 1].set_aspect("equal")
-        ax[0, 1].set_title("condition initiale")
-        ax[0, 1].legend()
+        makePlots.shape(x_net.detach().cpu(), y_net.detach().cpu())
+        makePlots.shape_error(x_net.detach().cpu(), y_net.detach().cpu(), x_ex.detach().cpu(), y_ex.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}")
 
-        ax[1, 0].scatter(
-            x_net.detach().cpu(), y_net.detach().cpu(), s=1, label="prediction"
-        )
-        ax[1, 0].set_aspect("equal")
-        ax[1, 0].set_title("transformation approchée")
-        ax[1, 0].legend()
-
-        ax[1, 1].scatter(
-            x_net.detach().cpu(),
-            y_net.detach().cpu(),
-            s=1,
-            c="yellow",
-            label="prediction",
-        )
-        ax[1, 1].scatter(x_ex.detach().cpu(), y_ex.detach().cpu(), s=1, label="exact")
-        ax[1, 1].set_aspect("equal")
-        ax[1, 1].set_title("transformation exacte")
-        ax[1, 1].legend()
-
-        plt.show()

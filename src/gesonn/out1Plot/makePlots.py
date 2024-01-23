@@ -28,3 +28,38 @@ def edp(x, y, u, title):
     # ax.legend()
 
     plt.show()
+
+def shape(x, y, title=None):
+    _, ax = plt.subplots()
+    ax.scatter(
+        x,
+        y,
+        s=1,
+    )
+    ax.set_aspect("equal")
+    if title is not None:
+        ax.set_title(title)
+
+    plt.show()
+
+def shape_error(x, y, u, v, title=None):
+    _, ax = plt.subplots()
+    ax.scatter(
+        u,
+        v,
+        s=50,
+        c="red",
+        label="exact",
+    )
+    ax.scatter(
+        x,
+        y,
+        s=1,
+        c="green",
+        label="prediction",
+    )
+    ax.set_aspect("equal")
+    if title is not None:
+        ax.set_title(title)
+
+    plt.show()
