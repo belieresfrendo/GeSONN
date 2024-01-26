@@ -1,8 +1,6 @@
 # imports
 import os
 import torch
-import matplotlib.pyplot as plt
-from matplotlib import rc
 import pandas as pd
 
 # local imports
@@ -10,8 +8,7 @@ from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
-rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-rc("text", usetex=True)
+
 try:
     import torchinfo
 
@@ -82,6 +79,3 @@ def main_poisson_test(testsDict, source_term):
         makePlots.edp(X_visu, Y_visu, Unet, "PINNs")
         makePlots.edp(X_visu, Y_visu, Ufem, "FEM")
         makePlots.edp(X_visu, Y_visu, err, "error")
-
-        # plt.title("Erreur L2 : ", errL2)
-        plt.show()

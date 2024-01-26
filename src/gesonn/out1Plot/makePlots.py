@@ -49,15 +49,41 @@ def shape_error(x, y, u, v, title=None):
         v,
         s=50,
         c="red",
-        label="exact",
+        label="fixed point optimal shape",
     )
     ax.scatter(
         x,
         y,
         s=1,
         c="green",
-        label="prediction",
+        label="GeSONN optimal shape",
     )
+    ax.set_aspect("equal")
+    ax.legend()
+    if title is not None:
+        ax.set_title(title)
+
+    plt.show()
+
+def edp_shape_error(edp, x, y, u, v, title=None):
+    fig, ax = plt.subplots()
+    im = ax.scatter(
+        x,
+        y,
+        s=1,
+        c=edp,
+        label="PDE GeSONN prediction",
+        cmap="gist_ncar",
+    )
+    ax.scatter(
+        u,
+        v,
+        s=10,
+        c="red",
+        label="fixed point optimal shape",
+    )
+    ax.legend(bbox_to_anchor=(0.5, -0.2), loc='upper center', borderaxespad=0., ncol=2)
+    fig.colorbar(im, ax=ax)
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)

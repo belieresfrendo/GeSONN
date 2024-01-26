@@ -22,11 +22,11 @@ if __name__ == "__main__":
         "rho_max": 1,
         "file_name": "test",
         "to_be_trained": True,
-        "source_term": "one",
+        "source_term": "exp",
         "boundary_condition": "dirichlet_homogene",
     }
 
-    epochs = 10_000
+    epochs = 500
     n_collocation = 100_000
     new_training = False
     new_training = True
