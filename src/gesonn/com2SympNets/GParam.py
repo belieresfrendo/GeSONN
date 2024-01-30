@@ -81,6 +81,7 @@ class Symp_Net_Forward(nn.DataParallel):
         B1 = torch.einsum("ik,jk->ijk", self.b1, ones)
         A1 = torch.einsum("ik,jk->ijk", self.a1, ones)
         # A2mu = torch.einsum("ik,jk->ijk", self.k2, mu)
+        # Asigma1 = A1 * torch.tanh(Kx_or_y + B1 + A2mu)
         Asigma1 = A1 * torch.tanh(Kx_or_y + B1 + mu)
         return torch.einsum("ik,ijk->jk", self.k1, Asigma1)
 
