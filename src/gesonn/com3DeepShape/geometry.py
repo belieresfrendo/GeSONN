@@ -25,7 +25,6 @@ import copy
 import time
 import torch
 import torch.nn as nn
-import pandas as pd
 
 # local imports
 from gesonn.com1PINNs import poisson
