@@ -42,6 +42,20 @@ def shape(x, y, title=None):
 
     plt.show()
 
+def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, title=None):
+    _, ax = plt.subplots()
+    ax.scatter(x1, y1, s=1)
+    ax.scatter(x2, y2, s=1)
+    ax.scatter(x3, y3, s=1)
+    ax.scatter(x4, y4, s=1)
+    ax.scatter(x5, y5, s=1)
+    ax.set_aspect("equal")
+    if title is not None:
+        ax.set_title(title)
+
+    plt.show()
+
+
 def shape_error(x, y, u, v, title=None):
     _, ax = plt.subplots()
     ax.scatter(

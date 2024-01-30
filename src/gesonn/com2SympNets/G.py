@@ -135,10 +135,6 @@ class Symp_Net:
         self.Vol = torch.pi * self.rho_max**2
         self.name_symplecto = SympNetsDict["symplecto_name"]
 
-        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
-        self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.Vol = torch.pi * self.rho_max**2
-
         self.create_networks()
         self.load(self.file_name)
 
@@ -277,8 +273,6 @@ class Symp_Net:
 
         self.x_collocation = torch.cos(theta_collocation)
         self.y_collocation = torch.sin(theta_collocation)
-
-        self.zeros = torch.zeros(shape, dtype=torch.double, device=device)
 
     def train(self, **kwargs):
         # nombre de pas de descente

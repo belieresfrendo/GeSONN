@@ -4,10 +4,7 @@ Author:
 Date:
     05/05/2023
 
-To run:
-    python3 pdeSymplec.py
-
-ML for symplectomorphism
+Machine learning code for parametric symplectic maps
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
@@ -22,12 +19,14 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # imports
 import os
 import copy
+import time
 import torch
 import torch.nn as nn
 
 # local imports
-from soviets.com1PINNs import metricTensors
 
+from gesonn.com1PINNs import metricTensors
+from gesonn.out1Plot import makePlots
 try:
     import torchinfo
 
@@ -93,12 +92,14 @@ class Symp_Net_Forward(nn.DataParallel):
 
 class Symp_Net:
     DEFAULT_SYMPNETS_DICT = {
-        "learning_rate": 1e-3,
-        "nb_of_networks": 6,
-        "networks_size": 10,
+        "learning_rate": 1e-2,
+        "nb_of_networks": 2,
+        "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "bizaroid",
+        "mu_min": 0.5,
+        "mu_max": 2,
+        "file_name": "default",
         "symplecto_name": "bizaroid",
         "to_be_trained": True,
     }
@@ -107,24 +108,47 @@ class Symp_Net:
     def __init__(self, **kwargs):
         SympNetsDict = kwargs.get("SympNetsDict", self.DEFAULT_SYMPNETS_DICT)
 
-        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
-        self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.mu_min, self.mu_max = kwargs.get("mu_min", 0.5), kwargs.get("mu_max", 2)
+        if SympNetsDict.get("learning_rate") == None:
+            SympNetsDict["learning_rate"] = self.DEFAULT_SYMPNETS_DICT["learning_rate"]
+        if SympNetsDict.get("nb_of_networks") == None:
+            SympNetsDict["nb_of_networks"] = self.DEFAULT_SYMPNETS_DICT[
+                "nb_of_networks"
+            ]
+        if SympNetsDict.get("networks_size") == None:
+            SympNetsDict["networks_size"] = self.DEFAULT_SYMPNETS_DICT["networks_size"]
+        if SympNetsDict.get("rho_min") == None:
+            SympNetsDict["rho_min"] = self.DEFAULT_SYMPNETS_DICT["rho_min"]
+        if SympNetsDict.get("rho_max") == None:
+            SympNetsDict["rho_max"] = self.DEFAULT_SYMPNETS_DICT["rho_max"]
+        if SympNetsDict.get("mu_min") == None:
+            SympNetsDict["mu_min"] = self.DEFAULT_SYMPNETS_DICT["mu_min"]
+        if SympNetsDict.get("mu_max") == None:
+            SympNetsDict["mu_max"] = self.DEFAULT_SYMPNETS_DICT["mu_max"]
+        if SympNetsDict.get("file_name") == None:
+            SympNetsDict["file_name"] = self.DEFAULT_SYMPNETS_DICT["file_name"]
+        if SympNetsDict.get("symplecto_name") == None:
+            SympNetsDict["symplecto_name"] = self.DEFAULT_SYMPNETS_DICT[
+                "symplecto_name"
+            ]
+        if SympNetsDict.get("to_be_trained") == None:
+            SympNetsDict["to_be_trained"] = self.DEFAULT_SYMPNETS_DICT["to_be_trained"]
 
-        self.Vol = torch.pi * self.rho_max**2
-
+        # Storage file
         self.file_name = (
-            "./../data/SympNets/net/GSympNet_" + SympNetsDict["file_name"] + ".pth"
+            "./../../../outputs/SympNets/net/" + SympNetsDict["file_name"] + ".pth"
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
-
+        # Learning rate
         self.learning_rate = SympNetsDict["learning_rate"]
-
-        # taille des différentes couches du réseau de neurones
+        # Layers parameters
         self.nb_of_networks = SympNetsDict["nb_of_networks"]
         self.networks_size = SympNetsDict["networks_size"]
-
+        # Geometry of the shape
+        self.rho_min, self.rho_max = SympNetsDict["rho_min"], SympNetsDict["rho_max"]
+        self.mu_min, self.mu_max = SympNetsDict["mu_min"], SympNetsDict["mu_max"]
+        self.theta_min, self.theta_max = 0, 2 * torch.pi
+        self.Vol = torch.pi * self.rho_max**2
         self.name_symplecto = SympNetsDict["symplecto_name"]
 
         self.create_networks()
@@ -204,8 +228,8 @@ class Symp_Net:
             "rho_max": self.rho_max,
             "theta_min": self.theta_min,
             "theta_max": self.theta_max,
-            "rho_min": self.rho_min,
-            "rho_max": self.rho_max,
+            "mu_min": self.mu_min,
+            "mu_max": self.mu_max,
         }
 
     @staticmethod
@@ -270,8 +294,6 @@ class Symp_Net:
             self.mu_min, self.mu_max, shape, requires_grad=True
         )
 
-        self.zeros = torch.zeros(shape, dtype=torch.double, device=device)
-
     def train(self, **kwargs):
         # nombre de pas de descente
         epochs = kwargs.get("epochs", 500)
@@ -287,6 +309,7 @@ class Symp_Net:
             best_loss_value = 1e10
 
         # boucle principale de la descnet ede gradient
+        tps1 = time.time()
         for epoch in range(epochs):
             # mise à 0 du gradient
             for i in range(self.nb_of_networks):
@@ -349,6 +372,7 @@ class Symp_Net:
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)
                 best_down_nets = self.copy_sympnet(self.down_nets)
                 best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+        tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
 
@@ -371,80 +395,92 @@ class Symp_Net:
 
         if plot_history:
             self.plot_result()
+        return tps2 - tps1
 
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, derivative=False, random=False):
-        import matplotlib.pyplot as plt
-        from matplotlib import rc
+    def get_hausdorff_error(self, n_pts=10_000):
 
-        rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-        rc("text", usetex=True)
+        import scipy.spatial.distance as dist
+        import numpy as np
 
-        _, ax = plt.subplots(2, 2)
-        ax[0, 0].semilogy(self.loss_history)
-        ax[0, 0].set_title("loss history")
+        self.make_collocation(n_pts)
 
-        n_shape = 10000
+        x_ex, y_ex = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=self.mu_collocation, name=self.name_symplecto
+        )
+        x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation, self.mu_collocation)
+
+        X_net = []
+        X_ex = []
+        for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+            X_net.append((x, y))
+        for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+            X_ex.append((x, y))
+
+        X_net = np.array(X_net)
+        X_ex = np.array(X_ex)
+
+        return max(dist.directed_hausdorff(X_net, X_ex)[0], dist.directed_hausdorff(X_ex, X_net)[0])
+
+
+    def plot_result(self):
+
+        makePlots.loss(self.loss_history)
+
+        n_shape = 10_000
         self.make_collocation(n_shape)
-        mu_visu1 = torch.ones((n_shape, 1), requires_grad=True, device=device) * (
-            0.25 * self.mu_max + 0.75 * self.mu_min
-        )
-        mu_visu2 = torch.ones((n_shape, 1), requires_grad=True, device=device) * (
-            0.5 * self.mu_max + 0.5 * self.mu_min
-        )
-        mu_visu3 = torch.ones((n_shape, 1), requires_grad=True, device=device) * (
-            0.75 * self.mu_max + 0.25 * self.mu_min
-        )
+        self.ones = torch.ones((n_shape, 1), requires_grad=True, device=device)
+        w1 = torch.rand(1, device=device)
+        mu_visu_1 = (w1*self.mu_min + (1-w1)*self.mu_max) * self.ones
+        w2 = torch.rand(1, device=device)
+        mu_visu_2 = (w2*self.mu_min + (1-w2)*self.mu_max) * self.ones
+        w3 = torch.rand(1, device=device)
+        mu_visu_3 = (w3*self.mu_min + (1-w3)*self.mu_max) * self.ones
+        w4 = torch.rand(1, device=device)
+        mu_visu_4 = (w4*self.mu_min + (1-w4)*self.mu_max) * self.ones
+        w5 = torch.rand(1, device=device)
+        mu_visu_5 = (w5*self.mu_min + (1-w5)*self.mu_max) * self.ones
 
-        x_ex1, y_ex1 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu1, name=self.name_symplecto
-        )
-        x_net1, y_net1 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu1
-        )
-        x_net2, y_net2 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu2
-        )
-        x_net3, y_net3 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu3
-        )
 
-        ax[0, 1].scatter(
-            self.x_collocation.detach().cpu(),
-            self.y_collocation.detach().cpu(),
-            s=1,
-            label="cercle",
+        x_ex_1, y_ex_1 = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=mu_visu_1, name=self.name_symplecto
         )
-        ax[0, 1].set_aspect("equal")
-        ax[0, 1].set_title("condition initiale")
-        ax[0, 1].legend()
+        x_net_1, y_net_1 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1)
+        x_ex_2, y_ex_2 = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=mu_visu_2, name=self.name_symplecto
+        )
+        x_net_2, y_net_2 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2)
+        x_ex_3, y_ex_3 = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=mu_visu_3, name=self.name_symplecto
+        )
+        x_net_3, y_net_3 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3)
+        x_ex_4, y_ex_4 = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=mu_visu_4, name=self.name_symplecto
+        )
+        x_net_4, y_net_4 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4)
+        x_ex_5, y_ex_5 = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu=mu_visu_5, name=self.name_symplecto
+        )
+        x_net_5, y_net_5 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5)
 
-        ax[1, 0].scatter(
-            x_net1.detach().cpu(), y_net1.detach().cpu(), s=1, label="prediction"
+        makePlots.shape(x_net_1.detach().cpu(), y_net_1.detach().cpu())
+        makePlots.shape_error(x_net_1.detach().cpu(), y_net_1.detach().cpu(), x_ex_1.detach().cpu(), y_ex_1.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_1[0].item()))
+        makePlots.shape(x_net_2.detach().cpu(), y_net_2.detach().cpu())
+        makePlots.shape_error(x_net_2.detach().cpu(), y_net_2.detach().cpu(), x_ex_2.detach().cpu(), y_ex_2.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_2[0].item()))
+        makePlots.shape(x_net_3.detach().cpu(), y_net_3.detach().cpu())
+        makePlots.shape_error(x_net_3.detach().cpu(), y_net_3.detach().cpu(), x_ex_3.detach().cpu(), y_ex_3.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_3[0].item()))
+        makePlots.shape(x_net_4.detach().cpu(), y_net_4.detach().cpu())
+        makePlots.shape_error(x_net_4.detach().cpu(), y_net_4.detach().cpu(), x_ex_4.detach().cpu(), y_ex_4.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_4[0].item()))
+        makePlots.shape(x_net_5.detach().cpu(), y_net_5.detach().cpu())
+        makePlots.shape_error(x_net_5.detach().cpu(), y_net_5.detach().cpu(), x_ex_5.detach().cpu(), y_ex_5.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_5[0].item()))
+        makePlots.param_shape(
+            x_net_1.detach().cpu(), y_net_1.detach().cpu(),
+            x_net_2.detach().cpu(), y_net_2.detach().cpu(),
+            x_net_3.detach().cpu(), y_net_3.detach().cpu(),
+            x_net_4.detach().cpu(), y_net_4.detach().cpu(),
+            x_net_5.detach().cpu(), y_net_5.detach().cpu(),
+            title="superposition of learned shapes",
         )
-        ax[1, 0].scatter(
-            x_net2.detach().cpu(), y_net2.detach().cpu(), s=1, label="prediction"
-        )
-        ax[1, 0].scatter(
-            x_net3.detach().cpu(), y_net3.detach().cpu(), s=1, label="prediction"
-        )
-        ax[1, 0].set_aspect("equal")
-        ax[1, 0].set_title("transformation approchée")
-        ax[1, 0].legend()
-
-        ax[1, 1].scatter(
-            x_net1.detach().cpu(),
-            y_net1.detach().cpu(),
-            s=1,
-            c="yellow",
-            label="prediction",
-        )
-        ax[1, 1].scatter(x_ex1.detach().cpu(), y_ex1.detach().cpu(), s=1, label="exact")
-        ax[1, 1].set_aspect("equal")
-        ax[1, 1].set_title("transformation exacte")
-        ax[1, 1].legend()
-
-        plt.show()
