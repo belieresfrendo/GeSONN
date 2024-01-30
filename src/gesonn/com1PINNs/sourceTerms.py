@@ -2,11 +2,11 @@
 import torch
 
 
-def get_f(x, y, mu=1, name=None):
+def get_f(x, y, mu=1., name=None):
     if name == "one":
-        return 1. + 0*x
+        return mu + 0*x #multiply by zero to have a tensor if mu is default value
     elif name == "ellipse":
-        r2 = (x / 0.8) ** 2 + (0.8 * y) ** 2
+        r2 = (x / mu) ** 2 + (mu * y) ** 2
         return torch.exp(1 - r2)
     elif name == "exp":
         r2 = (0.5 * x) ** 2 + (2 * y) ** 2

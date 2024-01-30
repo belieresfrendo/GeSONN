@@ -5,6 +5,7 @@ Date:
     05/05/2023
 
 Solve poisson EDP in a shape genereted by a symplectomorphism
+-Delta u = f
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
@@ -218,7 +219,7 @@ class PINNs:
             A_c = -(J_c * J_d + J_a * J_b) / fac
             A_d = (J_c**2 + J_a**2) / fac
 
-        elif self.name_symplecto == None:
+        else:
             A_a = 1
             A_b = 0
             A_c = 0
@@ -274,9 +275,6 @@ class PINNs:
 
         self.x_collocation = self.rho_collocation * torch.cos(self.theta_collocation)
         self.y_collocation = self.rho_collocation * torch.sin(self.theta_collocation)
-
-        self.zeros = torch.zeros(shape, dtype=torch.double, device=device)
-        self.ones = torch.ones(shape, dtype=torch.double, device=device)
 
     def train(self, **kwargs):
         # nombre de pas de descente
@@ -381,13 +379,6 @@ class PINNs:
             yT.detach().cpu(),
             u_pred.detach().cpu(),
             "Solution de l'EDP tensorisée",
-        )
-
-    def __str__(self):
-        return str(
-            torchinfo.summary(
-                self.net.module, [(1, 1), (1, 1)], dtypes=[torch.double, torch.double]
-            )
         )
 
 

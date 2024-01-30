@@ -4,10 +4,9 @@ Author:
 Date:
     05/05/2023
 
-To run:
-    python3 poisson_symplec.py
-
-Solve poisson EDP in a shape genereted by a symplectomorphism
+Solve poisson EDP with a PINN in a shape genereted by a
+symplectic map where the source term is a parametric function.
+-Delta u = f
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
@@ -22,12 +21,15 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # imports
 import os
 import copy
+import time
 import torch
 import torch.nn as nn
 
 # local imports
-from gesonn.out1Plot import colormaps
+from gesonn.out1Plot import makePlots
+from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import metricTensors
+from gesonn.com1PINNs import sourceTerms
 
 try:
     import torchinfo
@@ -77,39 +79,68 @@ class PDE_Forward(nn.DataParallel):
 
 class PINNs:
     DEFAULT_PINNS_DICT = {
-        "learning_rate": 1e-3,
+        "learning_rate": 5e-3,
         "layer_sizes": [3, 10, 20, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "test",
+        "mu_min": 0.5,
+        "mu_max": 5,
+        "file_name": "default",
         "symplecto_name": None,
-        "SympNet": None,
         "to_be_trained": True,
+        "source_term": "one",
+        "boundary_condition": "dirichlet_homgene",
     }
 
     # constructeur
     def __init__(self, **kwargs):
         PINNsDict = kwargs.get("PINNsDict", self.DEFAULT_PINNS_DICT)
 
-        self.rho_min, self.rho_max = PINNsDict["rho_min"], PINNsDict["rho_max"]
-        self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.e_min, self.e_max = kwargs.get("e_min", 0.5), kwargs.get("e_max", 10)
+        if PINNsDict.get("learning_rate") == None:
+            PINNsDict["learning_rate"] = self.DEFAULT_PINNS_DICT["learning_rate"]
+        if PINNsDict.get("layer_sizes") == None:
+            PINNsDict["layer_sizes"] = self.DEFAULT_PINNS_DICT["layer_sizes"]
+        if PINNsDict.get("rho_min") == None:
+            PINNsDict["rho_min"] = self.DEFAULT_PINNS_DICT["rho_min"]
+        if PINNsDict.get("rho_max") == None:
+            PINNsDict["rho_max"] = self.DEFAULT_PINNS_DICT["rho_max"]
+        if PINNsDict.get("mu_min") == None:
+            PINNsDict["mu_min"] = self.DEFAULT_PINNS_DICT["mu_min"]
+        if PINNsDict.get("mu_max") == None:
+            PINNsDict["mu_max"] = self.DEFAULT_PINNS_DICT["mu_max"]
+        if PINNsDict.get("file_name") == None:
+            PINNsDict["file_name"] = self.DEFAULT_PINNS_DICT["file_name"]
+        if PINNsDict.get("symplecto_name") == None:
+            PINNsDict["symplecto_name"] = self.DEFAULT_PINNS_DICT["symplecto_name"]
+        if PINNsDict.get("source_term") == None:
+            PINNsDict["source_term"] = self.DEFAULT_PINNS_DICT["source_term"]
+        if PINNsDict.get("boundary_condition") == None:
+            PINNsDict["boundary_condition"] = self.DEFAULT_PINNS_DICT[
+                "boundary_condition"
+            ]
+        if PINNsDict.get("to_be_trained") == None:
+            PINNsDict["to_be_trained"] = self.DEFAULT_PINNS_DICT["to_be_trained"]
 
-        self.Vol = torch.pi * self.rho_max**2
-
+        # Storage file
         self.file_name = (
             "./../../../outputs/PINNs/net/poisson_" + PINNsDict["file_name"] + ".pth"
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
-
+        # Learning rate
         self.learning_rate = PINNsDict["learning_rate"]
-
-        # taille des différentes couches du réseau de neurones
+        # Layer sizes
         self.layer_sizes = PINNsDict["layer_sizes"]
-
+        # Geometry of the shape
+        self.rho_min, self.rho_max = PINNsDict["rho_min"], PINNsDict["rho_max"]
+        self.theta_min, self.theta_max = 0, 2 * torch.pi
+        self.Vol = torch.pi * self.rho_max**2
         self.name_symplecto = PINNsDict["symplecto_name"]
-        self.SympNet = PINNsDict["SympNet"]
+        # Source term of the Poisson problem
+        self.mu_min, self.mu_max = PINNsDict["mu_min"], PINNsDict["mu_max"]
+        self.source_term = PINNsDict["source_term"]
+        # Boundary condition of the Poisson problem
+        self.boundary_condition = PINNsDict["boundary_condition"]
 
         self.create_network()
         self.load(self.file_name)
@@ -156,8 +187,8 @@ class PINNs:
             "rho_max": self.rho_max,
             "theta_min": self.theta_min,
             "theta_max": self.theta_max,
-            "e_min": self.e_min,
-            "e_max": self.e_max,
+            "mu_min": self.mu_min,
+            "mu_max": self.mu_max,
         }
 
     @staticmethod
@@ -184,10 +215,8 @@ class PINNs:
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        if self.name_symplecto != None or self.SympNet != None:
-            T = metricTensors.apply_symplecto(
-                x, y, name=self.name_symplecto, SympNet=self.SympNet
-            )
+        if self.name_symplecto is not None:
+            T = metricTensors.apply_symplecto(x, y, name=self.name_symplecto)
 
             J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
             J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
@@ -200,7 +229,7 @@ class PINNs:
             A_c = -(J_c * J_d + J_a * J_b) / fac
             A_d = (J_c**2 + J_a**2) / fac
 
-        elif self.name_symplecto == None and self.SympNet == None:
+        else:
             A_a = 1
             A_b = 0
             A_c = 0
@@ -208,8 +237,8 @@ class PINNs:
 
         return A_a, A_b, A_c, A_d
 
-    def left_hand_term(self, x, y, e):
-        u = self.get_u(x, y, e)
+    def left_hand_term(self, x, y, mu):
+        u = self.get_u(x, y, mu)
         a, b, c, d = self.get_metric_tensor(x, y)
 
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
@@ -219,141 +248,31 @@ class PINNs:
 
         return A_grad_u_grad_u
 
-    def right_hand_term(self, x, y, e):
-        u = self.get_u(x, y, e)
+    def right_hand_term(self, x, y, mu):
+        u = self.get_u(x, y, mu)
 
         # terme source
-        f = self.get_f(x, y, e)
+        f = sourceTerms.get_f(
+            *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            mu=mu,
+            name=self.source_term,
+        )
 
         return f * u
 
-    def get_dn_u(self, x, y, e):
-        """
-        Retourne le gradient normal dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-
-        Returns
-        -------
-        dn_u : float
-            gradient normal
-        nxT : float
-            1ère coordonnée cartésienne de la normale extérieure à TC
-        nyT : float
-            2ème coordonnée cartésienne de la normale extérieure à TC
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
-        xT, yT = metricTensors.apply_symplecto(
-            x, y, name=self.name_symplecto, SympNet=self.SympNet
-        )
-
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-
-        det = J_a * J_d - J_b * J_c
-        a, b, c, d = det * J_d, -det * J_c, -det * J_b, det * J_a
-
-        u = self.get_u(x, y, e)
-
-        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
-        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
-
-        Jt_dx_u = a * dx_u + b * dy_u
-        Jt_dy_u = c * dx_u + d * dy_u
-
-        nxT, nyT = self.get_n(x, y)
-
-        return Jt_dx_u * nxT + Jt_dy_u * nyT, nxT, nyT
-
-    def get_n(self, x, y):
-        """
-        Retourne la normale dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-
-        Returns
-        -------
-        nxT : float
-            1ère coordonnée cartésienne de la normale extérieure à TC
-        nyT : float
-            2ème coordonnée cartésienne de la normale extérieure à TC
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
-        tx, ty = -y, x
-
-        xT, yT = metricTensors.apply_symplecto(
-            x, y, name=self.name_symplecto, SympNet=self.SympNet
-        )
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-        txT, tyT = J_a * tx + J_b * ty, J_c * tx + J_d * ty
-        nxT, nyT = tyT, -txT
-        norm_nT = torch.sqrt(nxT**2 + nyT**2)
-        nxT, nyT = nxT / norm_nT, nyT / norm_nT
-
-        return nxT, nyT
-
-    def network_BC_mul(self, x, y):
-        rho_2 = x**2 + y**2
-        bc_mul = (rho_2 - self.rho_max**2)
-        if self.rho_min > 0:
-            bc_mul = bc_mul * (self.rho_min**2 - rho_2)
-        return bc_mul
-
-    def network_BC_add(self, x, y):
-        return 0
-        rho_2 = x**2 + y**2
-        bc_add = 1 - (rho_2 - self.rho_min**2) / (self.rho_max**2 - self.rho_min**2)
-        return bc_add
-
-    def get_u(self, x, y, e):
-        return self.u_net(
-            *metricTensors.apply_symplecto(
-                x, y, name=self.name_symplecto, SympNet=self.SympNet
+    def get_u(self, x, y, mu):
+        return bc.apply_BC(
+            self.u_net(
+                *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+                mu,
             ),
-            e,
-        ) * self.network_BC_mul(x, y) + self.network_BC_add(x,y)
-
-    def get_f(self, x, y, e):
-        x, y = metricTensors.apply_symplecto(
-            x, y, name=self.name_symplecto, SympNet=self.SympNet
+            x,
+            y,
+            self.rho_min,
+            self.rho_max,
+            name=self.boundary_condition,
         )
-        # return e
-        r2 = (x / e) ** 2 + (e * y) ** 2
-        return torch.exp(1 - r2)
-
+    
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
         random_numbers = torch.rand(
@@ -373,8 +292,8 @@ class PINNs:
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
-        self.e_collocation = self.random(
-            self.e_min, self.e_max, shape, requires_grad=True
+        self.mu_collocation = self.random(
+            self.mu_min, self.mu_max, shape, requires_grad=True
         )
 
     def train(self, **kwargs):
@@ -392,6 +311,7 @@ class PINNs:
             best_loss_value = 1e10
 
         # boucle principale de la descnet ede gradient
+        tps1 = time.time()
         for epoch in range(epochs):
             # mise à 0 du gradient
             self.u_optimizer.zero_grad()
@@ -406,16 +326,16 @@ class PINNs:
                 grad_u_2 = self.left_hand_term(
                     self.x_collocation,
                     self.y_collocation,
-                    self.e_collocation,
+                    self.mu_collocation,
                 )
                 fu = self.right_hand_term(
                     self.x_collocation,
                     self.y_collocation,
-                    self.e_collocation,
+                    self.mu_collocation,
                 )
 
                 dirichlet_loss = 0.5 * grad_u_2 - fu
-                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol #* (self.e_max - self.e_min)
+                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
 
             self.loss.backward()
             self.u_optimizer.step()
@@ -442,6 +362,7 @@ class PINNs:
                 best_loss_value = best_loss.item()
                 best_u_net = copy.deepcopy(self.u_net.state_dict())
                 best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+        tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
 
@@ -461,99 +382,59 @@ class PINNs:
         if plot_history:
             self.plot_result()
 
-    def plot_result(self, derivative=False, random=False):
-        import matplotlib.pyplot as plt
-        from matplotlib import rc
+        return tps2 - tps1
 
-        rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-        rc("text", usetex=True)
-
-        fig, ax = plt.subplots(2, 2)
-        ax[0, 0].plot(self.loss_history)
-        ax[0, 0].set_yscale("symlog", linthresh=1e-4)
+    def plot_result(self):
+        makePlots.loss(self.loss_history)
 
         n_visu = 50_000
-
-        self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
-        e_visu = (self.e_max) * self.ones
-
         self.make_collocation(n_visu)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation, e_visu)
-
+        self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
+        mu_visu_1 = (self.mu_min) * self.ones
+        mu_visu_2 = (0.75*self.mu_min + 0.25*self.mu_max) * self.ones
+        mu_visu_3 = 0.5*(self.mu_min + self.mu_max) * self.ones
+        mu_visu_4 = (0.25*self.mu_min + 0.75*self.mu_max) * self.ones
+        mu_visu_5 = (self.mu_max) * self.ones
+        u_pred_1 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_1)
+        u_pred_2 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_2)
+        u_pred_3 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_3)
+        u_pred_4 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_4)
+        u_pred_5 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_5)
         xT, yT = metricTensors.apply_symplecto(
             self.x_collocation,
             self.y_collocation,
             name=self.name_symplecto,
-            SympNet=self.SympNet,
         )
-        xT = xT.detach().cpu()
-        yT = yT.detach().cpu()
 
-        im = ax[0, 1].scatter(
-            xT,
-            yT,
-            s=1,
-            c=u_pred.detach().cpu(),
-            cmap=colormaps.make_colormap(),
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred_1.detach().cpu(),
+            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_1[0].item()),
         )
-        fig.colorbar(im, ax=ax[0, 1])
-        ax[0, 1].set_aspect("equal")
-        ax[0, 1].set_title("Solution de l'EDP tensorisée")
-        ax[0, 1].legend()
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred_2.detach().cpu(),
+            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_2[0].item()),
+        )
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred_3.detach().cpu(),
+            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_3[0].item()),
+        )
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred_4.detach().cpu(),
+            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_4[0].item()),
+        )
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred_5.detach().cpu(),
+            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_5[0].item()),
+        )
 
-        # u_ex = 0.25 * (1 - self.x_collocation**2 - self.y_collocation**2)
-        
-        # im = ax[1, 0].scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=u_ex.detach().cpu(),
-        #     cmap=colormaps.make_colormap(),
-        # )
-        # fig.colorbar(im, ax=ax[1, 0])
-        # ax[1, 0].set_aspect("equal")
-        # ax[1, 0].set_title("u_exact")
-        # ax[1, 0].legend()
-        
-        # err = (u_pred - u_ex)**2
-        # im = ax[1, 1].scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=err.detach().cpu(),
-        #     cmap=colormaps.make_colormap(),
-        # )
-        # fig.colorbar(im, ax=ax[1, 1])
-        # ax[1, 1].set_aspect("equal")
-        # ax[1, 1].set_title("erreur")
-        # ax[1, 1].legend()
-
-        # n_border = 10_000
-        # theta_border = self.random(
-        #     self.theta_min, self.theta_max, n_border, requires_grad=True, device=device
-        # )[:-1, None]
-
-        # x_max = self.rho_max * torch.cos(theta_border)
-        # y_max = self.rho_max * torch.sin(theta_border)
-        # xT_max, yT_max = metricTensors.apply_symplecto(
-        #     x_max,
-        #     y_max,
-        #     name=self.name_symplecto,
-        #     SympNet=self.SympNet,
-        # )
-        # dn_u, _, _ = self.get_dn_u(x_max, y_max, e_visu)
-
-        # im = ax[1, 0].scatter(
-        #     xT_max.detach().cpu(),
-        #     yT_max.detach().cpu(),
-        #     s=1,
-        #     c=dn_u.detach().cpu(),
-        #     cmap=colormaps.make_colormap(),
-        # )
-        # fig.colorbar(im, ax=ax[1, 0])
-        # ax[1, 0].set_aspect("equal")
-        # ax[1, 0].set_title("Solution de l'EDP tensorisée")
-        # ax[1, 0].legend()
-
-        plt.show()
 
