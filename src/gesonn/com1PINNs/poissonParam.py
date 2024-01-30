@@ -83,7 +83,7 @@ class PINNs:
         "layer_sizes": [3, 10, 20, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
-        "mu_min": 0.5,
+        "mu_min": 0.2,
         "mu_max": 5,
         "file_name": "default",
         "symplecto_name": None,
