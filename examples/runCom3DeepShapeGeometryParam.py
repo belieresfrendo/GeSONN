@@ -17,21 +17,21 @@ if __name__ == "__main__":
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [3, 10, 20, 10, 1],
         "nb_of_networks": 4,
-        "networks_size": 10,
+        "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 2,
         "file_name": "test",
         "to_be_trained": True,
-        "source_term": "exp",
+        "source_term": "ellipse",
         "boundary_condition": "dirichlet_homogene",
     }
 
-    epochs = 1
-    n_collocation = 100_000
+    epochs = 5_000
+    n_collocation = 50_000
     new_training = False
-    # new_training = True
+    new_training = True
 
     if train:
         if new_training:
