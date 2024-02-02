@@ -12,7 +12,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.9"
-dependencies = ["matplotlib", "pandas", "numpy", "torch == 2.1.2", scipy]
+dependencies = ["matplotlib", "pandas", "numpy", "torch >= 2.1.2", "scipy"]
 dynamic = ["version"]
 
 [project.readme]

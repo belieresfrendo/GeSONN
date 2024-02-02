@@ -6,3 +6,6 @@
 
 # virtual environment
 venv*
+
+# egg
+src/gesonn.egg-info
