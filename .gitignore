@@ -9,3 +9,9 @@ venv*
 
 # egg
 src/gesonn.egg-info
+
+# image files
+*.png
+
+# networks
+*.pth
