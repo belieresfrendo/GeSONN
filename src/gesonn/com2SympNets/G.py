@@ -17,9 +17,10 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
 
@@ -73,6 +74,39 @@ class Symp_Net_Forward(nn.DataParallel):
         B = torch.einsum("ik,jk->ijk", self.b, ones)
         A = torch.einsum("ik,jk->ijk", self.a, ones)
         Asigma = A * torch.tanh(Kx_or_y + B)
+        return torch.einsum("ik,ijk->jk", self.K, Asigma)
+
+
+# ----------------------------------------------------------------------
+#   CLASSE SYMP_NET_FORWARD_NO_BIAS - HERITIERE DE NN.DATAPARALLEL
+# ----------------------------------------------------------------------
+
+
+class Symp_Net_Forward_No_Bias(nn.DataParallel):
+    # constructeur
+    def __init__(self, n):
+        super(Symp_Net_Forward_No_Bias, self).__init__(nn.Module())
+        min_value = -1
+        max_value = 1
+
+        n = (n, 1)
+
+        self.K = torch.nn.parameter.Parameter(
+            min_value
+            + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
+        )
+        self.a = torch.nn.parameter.Parameter(
+            min_value
+            + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
+        )
+
+    # forward function -> defines the network structure
+    def forward(self, x_or_y):
+        Kx_or_y = torch.einsum("ik,jk->ijk", self.K, x_or_y)
+        shape_x_or_y = x_or_y.size()
+        ones = torch.ones(shape_x_or_y, device=device)
+        A = torch.einsum("ik,jk->ijk", self.a, ones)
+        Asigma = A * torch.tanh(Kx_or_y)
         return torch.einsum("ik,ijk->jk", self.K, Asigma)
 
 
@@ -382,8 +416,8 @@ class Symp_Net:
 
     def get_hausdorff_error(self, n_pts=10_000):
 
-        import scipy.spatial.distance as dist
         import numpy as np
+        import scipy.spatial.distance as dist
 
         self.make_collocation(n_pts)
 
