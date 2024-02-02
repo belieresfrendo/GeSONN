@@ -3,3 +3,6 @@
 
 # Ignorer le pycache
 *__pycache__*
+
+# virtual environment
+venv*
