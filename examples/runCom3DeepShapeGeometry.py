@@ -1,5 +1,6 @@
 # imports
 import os
+
 import torch
 
 # local imports
@@ -9,6 +10,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py")
 
 if __name__ == "__main__":
+
+    #==============================================================
+    # Parameters to be modified freely by the user
+    #==============================================================
+
     train = True
     # train = False
 
@@ -23,7 +29,7 @@ if __name__ == "__main__":
         "file_name": "test",
         "to_be_trained": True,
         "source_term": "exp",
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     epochs = 500
@@ -31,13 +37,17 @@ if __name__ == "__main__":
     new_training = False
     new_training = True
 
+    #==============================================================
+    # End of the modifiable area
+    #==============================================================
+
     if train:
         if new_training:
             try:
                 os.remove("./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth")
             except FileNotFoundError:
                 pass
-                
+
         network = geometry.Geo_Net(deepGeoDict=deepGeoDict)
 
 

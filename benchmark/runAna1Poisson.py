@@ -1,5 +1,4 @@
 # imports
-import os
 import torch
 
 # local imports
@@ -15,7 +14,7 @@ if __name__ == "__main__":
         "file_name": "benchmark_circle",
         "symplecto_name": None,
         "to_be_trained": True,
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     donutDict = {
@@ -24,7 +23,7 @@ if __name__ == "__main__":
         "file_name": "benchmark_donut",
         "symplecto_name": None,
         "to_be_trained": True,
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     ellipseDict = {
@@ -33,7 +32,7 @@ if __name__ == "__main__":
         "file_name": "benchmark_ellipse",
         "symplecto_name": "ellipse_benchmark",
         "to_be_trained": True,
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     donutEllipseDict = {
@@ -42,7 +41,7 @@ if __name__ == "__main__":
         "file_name": "benchmark_donut_ellipse",
         "symplecto_name": "ellipse_benchmark",
         "to_be_trained": True,
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     sourceList = ["one", "exp"]

@@ -1,5 +1,6 @@
 # imports
 import os
+
 import torch
 
 # local imports
@@ -28,7 +29,7 @@ if __name__ == "__main__":
         "symplecto_name": None,
         "to_be_trained": train,
         "source_term": "ellipse",
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     epochs = 10_000

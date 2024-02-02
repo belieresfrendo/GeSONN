@@ -1,5 +1,4 @@
 # imports
-import os
 import torch
 
 # local imports
@@ -23,7 +22,7 @@ if __name__ == "__main__":
         "file_name": "benchmark_circle",
         "to_be_trained": True,
         "source_term": "one",
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
-    
+
     deepCircle.main_deep_circle_test(simuDict)

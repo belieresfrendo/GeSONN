@@ -20,18 +20,18 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
+from gesonn.com1PINNs import boundary_conditions as bc
 
 # local imports
-from gesonn.com1PINNs import poisson
+from gesonn.com1PINNs import poisson, sourceTerms
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
-from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import sourceTerms
 
 try:
     import torchinfo
@@ -62,7 +62,7 @@ class Geo_Net:
         "file_name": "default",
         "to_be_trained": True,
         "source_term": "one",
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     # constructeur
@@ -510,7 +510,7 @@ class Geo_Net:
 
 
         makePlots.edp(
-            xT_border.detach().cpu(), 
+            xT_border.detach().cpu(),
             yT_border.detach().cpu(),
             dn_u.detach().cpu(),
             "gradient normal",

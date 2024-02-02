@@ -1,5 +1,6 @@
 # imports
 import os
+
 import torch
 
 # local imports
@@ -25,7 +26,7 @@ if __name__ == "__main__":
         "file_name": "test",
         "to_be_trained": True,
         "source_term": "ellipse",
-        "boundary_condition": "dirichlet_homogene",
+        "boundary_condition": "homogeneous_dirichlet",
     }
 
     epochs = 5_000
@@ -39,7 +40,7 @@ if __name__ == "__main__":
                 os.remove("./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth")
             except FileNotFoundError:
                 pass
-                
+
         network = geometryParam.Geo_Net(deepGeoDict=deepGeoDict)
 
 
