@@ -7,7 +7,6 @@ Date:
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -60,22 +59,24 @@ class Bernoulli_Net:
         "source_term": "one",
         "boundary_condition": "bernoulli",
     }
-    
+
     # constructeur
     def __init__(self, deepDict, **kwargs):
 
         deepDict = kwargs.get("deepDict", self.DEFAULT_DEEP_BERN_DICT)
 
         if deepDict.get("pde_learning_rate") == None:
-            deepDict["pde_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT["pde_learning_rate"]
+            deepDict["pde_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT[
+                "pde_learning_rate"
+            ]
         if deepDict.get("sympnet_learning_rate") == None:
-            deepDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT["sympnet_learning_rate"]
+            deepDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT[
+                "sympnet_learning_rate"
+            ]
         if deepDict.get("layer_sizes") == None:
             deepDict["layer_sizes"] = self.DEFAULT_DEEP_BERN_DICT["layer_sizes"]
         if deepDict.get("nb_of_networks") == None:
-            deepDict["nb_of_networks"] = self.DEFAULT_DEEP_BERN_DICT[
-                "nb_of_networks"
-            ]
+            deepDict["nb_of_networks"] = self.DEFAULT_DEEP_BERN_DICT["nb_of_networks"]
         if deepDict.get("networks_size") == None:
             deepDict["networks_size"] = self.DEFAULT_DEEP_BERN_DICT["networks_size"]
         if deepDict.get("rho_min") == None:
@@ -92,7 +93,6 @@ class Bernoulli_Net:
             ]
         if deepDict.get("to_be_trained") == None:
             deepDict["to_be_trained"] = self.DEFAULT_DEEP_BERN_DICT["to_be_trained"]
-
 
         # Storage file
         self.file_name = (
@@ -122,7 +122,9 @@ class Bernoulli_Net:
         self.to_be_trained = deepDict["to_be_trained"]
 
     def sympnet_layer_append(self, nets, optims, i):
-        nets.append(nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device))
+        nets.append(
+            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+        )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
         )
@@ -455,7 +457,13 @@ class Bernoulli_Net:
             x, y = x + self.up_nets[i](y), y
             x, y = x, y + self.down_nets[i](x)
         return x, y
-    
+
+    def apply_inverse_symplecto(self, x, y):
+        for i in range(self.nb_of_networks):
+            y = y - self.down_nets[self.nb_of_networks - 1 - i](x)
+            x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
+        return x, y
+
     def get_u(self, x, y):
         return bc.apply_BC(
             self.u_net(*self.apply_symplecto(x, y)),
@@ -463,15 +471,16 @@ class Bernoulli_Net:
             y,
             self.rho_min,
             self.rho_max,
-            name =self.boundary_condition,
+            name=self.boundary_condition,
         )
 
-    def get_pen(self, x, y, a=0.8):
-        xT, yT = self.apply_symplecto(x, y)
-        x_goal = a * x
-        y_goal = 1 / a * y
+    def apply_rejet_kompact(self, xT, yT, a=0.8):
+        b = self.rho_min**2 / a
+        xT, yT = self.apply_symplecto(xT, yT)
+        bool_rejet = (xT / a) ** 2 + (yT / b) ** 2 >= 1
+        xT, yT = bool_rejet * xT, bool_rejet * yT
 
-        return (xT - x_goal) ** 2 + (yT - y_goal) ** 2
+        return self.apply_inverse_symplecto(xT, yT)
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -480,11 +489,11 @@ class Bernoulli_Net:
         )
         return min_value + (max_value - min_value) * random_numbers
 
-    def make_collocation(self, n_collocation, plotting=False):
+    def make_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
         rho_collocation = torch.sqrt(
-            self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
+            self.random(0, self.rho_max**2, shape, requires_grad=True)
         )
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
@@ -493,13 +502,9 @@ class Bernoulli_Net:
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
 
-        if plotting:
-            self.x_collocation_max = self.rho_max * torch.cos(theta_collocation)
-            self.y_collocation_max = self.rho_max * torch.sin(theta_collocation)
-        self.x_collocation_min = self.rho_min * torch.cos(theta_collocation)
-        self.y_collocation_min = self.rho_min * torch.sin(theta_collocation)
-
-        self.ones = torch.ones(shape, device=device)
+        self.x_collocation, self.y_collocation = self.apply_rejet_kompact(
+            self.y_collocation, self.y_collocation
+        )
 
     def get_mes_border(self):
         n = 10_000
@@ -542,58 +547,12 @@ class Bernoulli_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
-                grad_u_2 = self.left_hand_term(
-                    self.x_collocation, self.y_collocation
-                )
+                grad_u_2 = self.left_hand_term(self.x_collocation, self.y_collocation)
                 dirichlet_loss = 0.5 * grad_u_2
 
-                # dn_u, _, _ = self.get_dn_u(
-                #     self.x_collocation_max, self.y_collocation_max
-                # )
-                # avg_dn_u = self.get_avg_dn_u(
-                #     self.x_collocation_max, self.y_collocation_max, n_collocation
-                # )
-                # optimality_condition = (dn_u - avg_dn_u) ** 2
-
-                pen = self.get_pen(self.x_collocation_min, self.y_collocation_min)
-
-                alpha = 500
-                # beta = 1/10
-                # if epoch > 200:
-                #     alpha = 0.1
-                #     if epoch >500:
-                #         alpha = 1
-
-                # a_D = 250 * math.log(2 + epoch / 500) / math.log(2)
-                # a_P = 2.5 * math.log(2 + epoch / 500) / math.log(2)
-                # a_N = 1
-
                 D = dirichlet_loss.sum() / n_collocation * self.Vol
-                P = alpha * pen.sum() / n_collocation * self.Vol
-                # N = beta * optimality_condition.sum() / n_collocation * self.get_mes_border()
-                if epoch == 0:
-                    self.D0 = copy.deepcopy(D.item())
-                    self.P0 = copy.deepcopy(P.item())
-                    # self.N0 = copy.deepcopy(N.item())
 
-                # self.loss = (
-                #     (dirichlet_loss + alpha * pen).sum() / n_collocation * self.Vol
-                # )  + 0.01*optimality_condition.sum() / n_collocation * self.get_mes_border()
-
-                # try:
-                #     self.loss = (
-                #         a_D * D / self.D0 + a_P * P / self.P0 #+ a_N * N / self.N0
-                #     )
-                #     print(
-                #         f"{a_D * D.item() / self.D0:5.2e}",
-                #         f"{a_P * P.item() / self.P0:5.2e}",
-                #         # f"{a_N * N.item() / self.N0:5.2e}",
-                #     )
-                # except KeyboardInterrupt:
-                #     self.plot_result(epoch)
-                #     raise
-
-                self.loss = D + P #+ N
+                self.loss = D
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
@@ -602,21 +561,6 @@ class Bernoulli_Net:
             self.u_optimizer.step()
 
             self.loss_history.append(self.loss.item())
-
-            # if epoch < (50):
-            #     self.make_movie(epoch)
-            # elif epoch < 100 and epoch % 5 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 250 and epoch % 10 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 500 and epoch % 25 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 750 and epoch % 50 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 1000 and epoch % 100 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch % 500 == 0:
-            #     self.make_movie(epoch)
 
             if epoch % 500 == 0:
                 print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -691,72 +635,19 @@ class Bernoulli_Net:
         ax[0, 0].set_title("loss history")
 
         n_visu = 25_000
-        self.make_collocation(n_visu, plotting=True)
-        # n_border = 50_000
-        # theta_border = torch.linspace(
-        #     self.theta_min, self.theta_max, n_border, requires_grad=True, device=device
-        # )[:, None]
-
-        # self.x_collocation_max = self.rho_max * torch.cos(theta_border)
-        # y_max = self.rho_max * torch.sin(theta_border)
-        # x_min = self.rho_min * torch.cos(theta_border)
-        # y_min = self.rho_min * torch.sin(theta_border)
-        xT_max, yT_max = self.apply_symplecto(
-            self.x_collocation_max, self.y_collocation_max
-        )
-        xT_min, yT_min = self.apply_symplecto(
-            self.x_collocation_min, self.y_collocation_min
-        )
+        self.make_collocation(n_visu)
 
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        u_pred = (
-            self.get_u(self.x_collocation, self.y_collocation)
-            .detach()
-            .cpu()
-        )
-        dn_u, nx, ny = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
+        xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
+        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
+        # dn_u, _, _ = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
 
-        xT = xT.detach().cpu()
-        yT = yT.detach().cpu()
-
-        # ax[1, 0].quiver(
-        #     xT_max.detach().cpu(),
-        #     yT_max.detach().cpu(),
-        #     nx.detach().cpu(),
-        #     ny.detach().cpu(),
-        #     label="normale sortante",
-        #     color="red",
-        # )
-        ax[1, 0].scatter(
-            xT_min.detach().cpu(),
-            yT_min.detach().cpu(),
-            s=1,
-            color="green",
+        self.x_collocation, self.y_collocation = (
+            self.x_collocation.detach().cpu(),
+            self.y_collocation.detach().cpu(),
         )
-        im = ax[1, 0].scatter(
-            xT_max.detach().cpu(),
-            yT_max.detach().cpu(),
-            s=1,
-            c=dn_u.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax[1, 0])
-        ax[1, 0].legend()
-        ax[1, 0].set_title("forme optimale")
-        ax[1, 0].set_aspect("equal")
-#
-        # A_grad_u_grad_u = self.left_hand_term(
-        #     self.x_collocation, self.y_collocation
-        # )
-
-        # im = ax[1, 0].scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=A_grad_u_grad_u.detach().cpu(),
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax[1, 0])
+        xT, yT = xT.detach().cpu(), yT.detach().cpu()
+        xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
 
         im = ax[1, 1].scatter(
             xT,
@@ -769,14 +660,20 @@ class Bernoulli_Net:
         ax[1, 1].set_title("solution approchée de l'EDP")
         ax[1, 1].set_aspect("equal")
 
-        plt.show()
+        im = ax[1, 0].scatter(
+            xT_inv,
+            yT_inv,
+            s=1,
+        )
+        ax[1, 0].set_title("solution approchée de l'EDP")
+        ax[1, 0].set_aspect("equal")
 
+        plt.show()
 
     def make_movie(self, epoch):
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(figsize=[20, 15])
-
 
         n_visu = 1000
         self.make_collocation(n_visu)
@@ -788,7 +685,7 @@ class Bernoulli_Net:
             self.x_collocation_min, self.y_collocation_min
         )
         x_min_goal = self.a * self.x_collocation_min
-        y_min_goal = 1/self.a * self.y_collocation_min
+        y_min_goal = 1 / self.a * self.y_collocation_min
 
         dn_u, _, _ = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
 
@@ -798,7 +695,7 @@ class Bernoulli_Net:
             s=10,
             c=dn_u.detach().cpu(),
             cmap="gist_ncar",
-            label="$|\partial_n u|$ sur la surface libre"
+            label="$|\partial_n u|$ sur la surface libre",
         )
 
         ax.scatter(
@@ -807,18 +704,18 @@ class Bernoulli_Net:
             marker="^",
             s=10,
             color="black",
-            label="bord exact"
+            label="bord exact",
         )
         ax.scatter(
             xT_min.detach().cpu(),
             yT_min.detach().cpu(),
             s=5,
             color="red",
-            label="bord pénalisé"
+            label="bord pénalisé",
         )
         fig.colorbar(im, ax=ax)
         ax.legend()
         ax.set_aspect("equal")
         plt.title("epoch :" + str(epoch))
 
-        plt.savefig("../data/deepShape/img/" + str(epoch) + ".png")#, dpi=1200)
+        plt.savefig("../data/deepShape/img/" + str(epoch) + ".png")  # , dpi=1200)

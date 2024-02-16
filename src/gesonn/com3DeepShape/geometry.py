@@ -26,9 +26,9 @@ import time
 
 import torch
 import torch.nn as nn
-from gesonn.com1PINNs import boundary_conditions as bc
 
 # local imports
+from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import poisson, sourceTerms
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
@@ -330,11 +330,11 @@ class Geo_Net:
         return f * u
 
     def apply_symplecto(self, x, y):
-        x_net, y_net = x, y
+        x, y = x, y
         for i in range(self.nb_of_networks):
-            x_net, y_net = x_net + self.up_nets[i](y_net), y_net
-            x_net, y_net = x_net, y_net + self.down_nets[i](x_net)
-        return x_net, y_net
+            x, y = x + self.up_nets[i](y), y
+            x, y = x, y + self.down_nets[i](x)
+        return x, y
 
     def get_u(self, x, y):
         return bc.apply_BC(
