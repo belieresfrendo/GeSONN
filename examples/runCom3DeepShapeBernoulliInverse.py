@@ -32,8 +32,8 @@ if __name__ == "__main__":
         "boundary_condition": "bernoulli",
     }
 
-    epochs = 10
-    n_collocation = 1_000
+    epochs = 100
+    n_collocation = 10_000
     new_training = False
     new_training = True
 
