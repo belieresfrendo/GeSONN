@@ -20,8 +20,8 @@ deepBernDict = {
     "pde_learning_rate": 1e-3,
     "sympnet_learning_rate": 1e-3,
     "layer_sizes": [2, 10, 20, 10, 1],
-    "nb_of_networks": 2,
-    "networks_size": 5,
+    "nb_of_networks": 4,
+    "networks_size": 10,
     "rho_min": 0.5,
     "rho_max": 1,
     "file_name": "default",
@@ -30,10 +30,10 @@ deepBernDict = {
     "boundary_condition": "bernoulli",
 }
 
-epochs = 100
-n_collocation = 10_000
+epochs = 100_000
+n_collocation = 1_000
 new_training = False
-new_training = True
+# new_training = True
 
 #==============================================================
 # End of the modifiable area

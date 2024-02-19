@@ -116,6 +116,10 @@ class Bernoulli_Net:
         # Boundary condition of the Poisson problem
         self.boundary_condition = deepDict["boundary_condition"]
 
+        # Parameters of the compact set K
+        self.a = 0.8
+        self.b = 0.25 / 0.8
+
         self.create_networks()
         self.load(self.file_name)
 
@@ -478,9 +482,6 @@ class Bernoulli_Net:
 
         return A_grad_u_grad_u
 
-    # def boundary(self, xK, yK):
-    #     return (self.get_u_K(xK, yK) - 1) ** 2
-
     def apply_symplecto(self, x, y):
         for i in range(self.nb_of_networks):
             x, y = x + self.up_nets[i](y), y
@@ -493,16 +494,12 @@ class Bernoulli_Net:
             x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
         return x, y
 
-    def get_u_K(self, x, y):
-        return self.u_net(x, y)
-
-    def get_u(self, x, y, a=0.8):
-        b = 0.25/a
+    def get_u(self, x, y):
         rho_2 = x**2 + y**2
         xT, yT = self.apply_symplecto(x, y)
-        rhoT_2 = (xT/a)**2 + (yT/b)**2
-        bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - self.rho_min**2)
-        bc_add = 1 - (rhoT_2 - self.rho_min**2) / (self.rho_max**2 - self.rho_min**2)
+        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+        bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
+        bc_add = 1- (rho_2 - self.rho_min**2) / (self.rho_max**2 - self.rho_min**2)
         return self.u_net(xT, yT) * bc_mul + bc_add
 
     def get_u_free(self, x, y):
@@ -515,12 +512,11 @@ class Bernoulli_Net:
             name=self.boundary_condition,
         )
 
-    def apply_rejet_kompact(self, x, y, a=0.8):
-        b = self.rho_min**2 / a
+    def apply_rejet_kompact(self, x, y):
         xT, yT = self.apply_symplecto(x, y)
         xT, yT = (
-            xT[(xT / a) ** 2 + (yT / b) ** 2 >= 1][:, None],
-            yT[(xT / a) ** 2 + (yT / b) ** 2 >= 1][:, None],
+            xT[(xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1][:, None],
+            yT[(xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1][:, None],
         )
         return self.apply_inverse_symplecto(xT, yT)
 
@@ -531,8 +527,7 @@ class Bernoulli_Net:
         )
         return min_value + (max_value - min_value) * random_numbers
 
-    def make_collocation(self, n_collocation, a=0.8):
-        b = 0.25 / a
+    def make_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
         rho_collocation = torch.sqrt(
@@ -549,22 +544,8 @@ class Bernoulli_Net:
             self.x_collocation, self.y_collocation
         )
 
-        # bool_in = (self.x_collocation != 0) * (self.y_collocation != 0)
-        # bool_out = (self.x_collocation == 0) * (self.y_collocation == 0)
-        # self.x_collocation = (
-        #     self.x_collocation * bool_in
-        #     + self.rho_max * torch.cos(theta_collocation) * bool_out
-        # )
-        # self.y_collocation = (
-        #     self.y_collocation * bool_in
-        #     + self.rho_max * torch.sin(theta_collocation) * bool_out
-        # )
-
-        self.x_Gamma_collocation = self.rho_max * torch.cos(theta_collocation)
-        self.y_Gamma_collocation = self.rho_max * torch.sin(theta_collocation)
-
-        self.x_K_collocation = a * torch.cos(theta_collocation)
-        self.y_K_collocation = b * torch.sin(theta_collocation)
+        self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
+        self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
 
     def make_collocation_free(self, n_collocation):
         shape = (n_collocation, 1)
@@ -630,13 +611,7 @@ class Bernoulli_Net:
                     self.left_free_hand_term(self.x_collocation, self.y_collocation)
                     / n_collocation
                 )
-                # boundary_loss = (
-                #     self.boundary(
-                #         self.x_K_collocation,
-                #         self.y_K_collocation,
-                #     )
-                #     / n_collocation
-                # )
+
                 dirichlet_loss = 0.5 * (grad_u_2 - grad_u_free_2)
 
                 # D = dirichlet_loss.sum() / n_collocation * self.Vol
@@ -644,7 +619,7 @@ class Bernoulli_Net:
                 # P = boundary_loss.sum()
 
                 # self.loss = (D + 1e3 * P)**2
-                self.loss = D ** 2
+                self.loss = D**2
                 self.dirichlet_energy = (
                     0.5 * grad_u_free_2.sum() / n_collocation * self.Vol
                 )
@@ -743,7 +718,11 @@ class Bernoulli_Net:
         self.make_collocation_free(n_visu)
 
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        xT_free, yT_free = self.apply_symplecto(self.x_free_collocation, self.y_free_collocation)
+        xT_free, yT_free = self.apply_symplecto(
+            self.x_free_collocation, self.y_free_collocation
+        )
+        xT_gamma, yT_gamma = self.apply_symplecto(self.x_gamma_collocation, self.y_gamma_collocation)
+
         xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
         u_free_pred = (
             self.get_u_free(self.x_free_collocation, self.y_free_collocation)
@@ -751,17 +730,19 @@ class Bernoulli_Net:
             .cpu()
         )
         u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
+        dn_u_pred, _, _ = self.get_dn_u(self.x_gamma_collocation, self.y_gamma_collocation)
 
-        x, y = (
-            self.x_collocation.detach().cpu(),
-            self.y_collocation.detach().cpu(),
-        )
+        # x, y = (
+        #     self.x_collocation.detach().cpu(),
+        #     self.y_collocation.detach().cpu(),
+        # )
         xT_free, yT_free = (
             xT_free.detach().cpu(),
             yT_free.detach().cpu(),
         )
         xT, yT = xT.detach().cpu(), yT.detach().cpu()
         xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+        xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
 
         im = ax[1, 1].scatter(
             xT_free,
@@ -786,11 +767,14 @@ class Bernoulli_Net:
         ax[0, 1].set_aspect("equal")
 
         im = ax[1, 0].scatter(
-            x,
-            y,
+            xT_gamma,
+            yT_gamma,
             s=1,
+            c = dn_u_pred.detach().cpu(),
+            cmap="gist_ncar",
         )
-        ax[1, 0].set_title("Poins de collocation")
+        fig.colorbar(im, ax=ax[1, 0])
+        ax[1, 0].set_title("$\partial_n u_{pred}$")
         ax[1, 0].set_aspect("equal")
 
         plt.show()
