@@ -499,15 +499,7 @@ class Bernoulli_Net:
         xT, yT = self.apply_symplecto(x, y)
         rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
         bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
-        # print("rho_max", self.rho_max)
-        # print("min rho 2", rho_2.min())
-        # print("max rho 2", rho_2.max())
-        # print("min rho tilde", self.rho_tilde_2.min())
-        # print("max rho tilde", self.rho_tilde_2.max())
-        # raise
-        # print(rho_2.max().item(),self.rho_tilde_2.max().item())
-        # raise
-        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - self.rho_tilde_2+1e-10)
+        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - self.rho_tilde_2)
         # return bc_add
         return self.u_net(xT, yT) * bc_mul + bc_add
 
@@ -547,7 +539,6 @@ class Bernoulli_Net:
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
-        # theta_collocation = torch.linspace(self.theta_min, self.theta_max, n_collocation, requires_grad=True)[:, None]
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
@@ -564,7 +555,16 @@ class Bernoulli_Net:
         x_E = self.a * torch.cos(theta_collocation)
         y_E = self.b * torch.sin(theta_collocation)
         x_E_tilde, y_E_tilde = self.apply_inverse_symplecto(x_E, y_E)
+        theta_tilde = torch.atan2(y_E_tilde, x_E_tilde)
         self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
+        x_E_tilde = torch.sqrt(self.rho_tilde_2) * torch.cos(theta_tilde)
+        y_E_tilde = torch.sqrt(self.rho_tilde_2) * torch.sin(theta_tilde)
+        self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
+
+        # plt.scatter(x_test.detach().cpu(), y_test.detach().cpu())
+        # plt.scatter(self.x_collocation.detach().cpu(), self.y_collocation.detach().cpu())
+        # plt.show()
+        # raise
 
     def make_collocation_free(self, n_collocation):
         shape = (n_collocation, 1)
@@ -777,7 +777,7 @@ class Bernoulli_Net:
             cmap="gist_ncar",
         )
         fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("$u_{theta_free}$")
+        ax[1, 1].set_title("$u_{theta,free}$")
         ax[1, 1].set_aspect("equal")
 
         im = ax[0, 1].scatter(
