@@ -30,10 +30,10 @@ deepBernDict = {
     "boundary_condition": "bernoulli",
 }
 
-epochs = 100_000
+epochs = 1
 n_collocation = 1_000
 new_training = False
-# new_training = True
+new_training = True
 
 #==============================================================
 # End of the modifiable area

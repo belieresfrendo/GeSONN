@@ -118,7 +118,7 @@ class Bernoulli_Net:
 
         # Parameters of the compact set K
         self.a = 0.8
-        self.b = 0.25 / 0.8
+        self.b = self.rho_min**2 / self.a
 
         self.create_networks()
         self.load(self.file_name)
@@ -499,7 +499,16 @@ class Bernoulli_Net:
         xT, yT = self.apply_symplecto(x, y)
         rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
         bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
-        bc_add = 1- (rho_2 - self.rho_min**2) / (self.rho_max**2 - self.rho_min**2)
+        # print("rho_max", self.rho_max)
+        # print("min rho 2", rho_2.min())
+        # print("max rho 2", rho_2.max())
+        # print("min rho tilde", self.rho_tilde_2.min())
+        # print("max rho tilde", self.rho_tilde_2.max())
+        # raise
+        # print(rho_2.max().item(),self.rho_tilde_2.max().item())
+        # raise
+        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - self.rho_tilde_2+1e-10)
+        # return bc_add
         return self.u_net(xT, yT) * bc_mul + bc_add
 
     def get_u_free(self, x, y):
@@ -512,13 +521,15 @@ class Bernoulli_Net:
             name=self.boundary_condition,
         )
 
-    def apply_rejet_kompact(self, x, y):
+    def apply_rejet_kompact(self, x, y, theta):
         xT, yT = self.apply_symplecto(x, y)
-        xT, yT = (
-            xT[(xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1][:, None],
-            yT[(xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1][:, None],
+        condition = (xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1
+        xT, yT, theta = (
+            xT[condition][:, None],
+            yT[condition][:, None],
+            theta[condition][:, None],
         )
-        return self.apply_inverse_symplecto(xT, yT)
+        return *self.apply_inverse_symplecto(xT, yT), theta
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -536,16 +547,24 @@ class Bernoulli_Net:
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
+        # theta_collocation = torch.linspace(self.theta_min, self.theta_max, n_collocation, requires_grad=True)[:, None]
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
 
-        self.x_collocation, self.y_collocation = self.apply_rejet_kompact(
-            self.x_collocation, self.y_collocation
-        )
-
         self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
         self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
+
+        self.x_collocation, self.y_collocation, theta_collocation = (
+            self.apply_rejet_kompact(
+                self.x_collocation, self.y_collocation, theta_collocation
+            )
+        )
+
+        x_E = self.a * torch.cos(theta_collocation)
+        y_E = self.b * torch.sin(theta_collocation)
+        x_E_tilde, y_E_tilde = self.apply_inverse_symplecto(x_E, y_E)
+        self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
 
     def make_collocation_free(self, n_collocation):
         shape = (n_collocation, 1)
@@ -721,7 +740,9 @@ class Bernoulli_Net:
         xT_free, yT_free = self.apply_symplecto(
             self.x_free_collocation, self.y_free_collocation
         )
-        xT_gamma, yT_gamma = self.apply_symplecto(self.x_gamma_collocation, self.y_gamma_collocation)
+        xT_gamma, yT_gamma = self.apply_symplecto(
+            self.x_gamma_collocation, self.y_gamma_collocation
+        )
 
         xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
         u_free_pred = (
@@ -730,12 +751,14 @@ class Bernoulli_Net:
             .cpu()
         )
         u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
-        dn_u_pred, _, _ = self.get_dn_u(self.x_gamma_collocation, self.y_gamma_collocation)
-
-        # x, y = (
-        #     self.x_collocation.detach().cpu(),
-        #     self.y_collocation.detach().cpu(),
+        # dn_u_pred, _, _ = self.get_dn_u(
+        #     self.x_gamma_collocation, self.y_gamma_collocation
         # )
+
+        x, y = (
+            self.x_collocation.detach().cpu(),
+            self.y_collocation.detach().cpu(),
+        )
         xT_free, yT_free = (
             xT_free.detach().cpu(),
             yT_free.detach().cpu(),
@@ -744,15 +767,17 @@ class Bernoulli_Net:
         xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
         xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
 
+        u_theta_free = self.u_free_net(self.x_free_collocation, self.y_free_collocation).detach().cpu()
         im = ax[1, 1].scatter(
             xT_free,
             yT_free,
             s=1,
-            c=u_free_pred,
+            # c=u_free_pred,
+            c=u_theta_free,
             cmap="gist_ncar",
         )
         fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("$u_{free}$")
+        ax[1, 1].set_title("$u_{theta_free}$")
         ax[1, 1].set_aspect("equal")
 
         im = ax[0, 1].scatter(
@@ -766,15 +791,32 @@ class Bernoulli_Net:
         ax[0, 1].set_title("$u_{pred}$")
         ax[0, 1].set_aspect("equal")
 
-        im = ax[1, 0].scatter(
-            xT_gamma,
-            yT_gamma,
+        im = ax[1,0].scatter(
+            x,
+            y,
             s=1,
-            c = dn_u_pred.detach().cpu(),
-            cmap="gist_ncar",
         )
-        fig.colorbar(im, ax=ax[1, 0])
-        ax[1, 0].set_title("$\partial_n u_{pred}$")
-        ax[1, 0].set_aspect("equal")
+        # ax[1,0].set_title(r"$C\T^{-1}E$")
+        ax[1,0].set_aspect("equal")
+        # im = ax[1,0].scatter(
+        #     xT,
+        #     yT,
+        #     s=1,
+        #     c = self.u_net(self.x_collocation, self.y_collocation).detach().cpu(),
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax[1,0])
+        # ax[1,0].set_title("$u_{theta}$")
+        # ax[1,0].set_aspect("equal")
+        # im = ax[1, 0].scatter(
+        #     xT_gamma,
+        #     yT_gamma,
+        #     s=1,
+        #     c=dn_u_pred.detach().cpu(),
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax[1, 0])
+        # ax[1, 0].set_title("$\partial_n u_{pred}$")
+        # ax[1, 0].set_aspect("equal")
 
         plt.show()
