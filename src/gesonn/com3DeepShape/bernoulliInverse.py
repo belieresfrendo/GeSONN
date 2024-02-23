@@ -475,15 +475,14 @@ class Bernoulli_Net:
         bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - rho_2 + rhoT_2 - 1)
         return self.u_net(xT, yT) * bc_mul + bc_add
 
-    def apply_rejet_kompact(self, x, y, theta):
+    def apply_rejet_kompact(self, x, y):
         xT, yT = self.apply_symplecto(x, y)
         condition = (xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1
-        xT, yT, theta = (
+        xT, yT = (
             xT[condition][:, None],
             yT[condition][:, None],
-            theta[condition][:, None],
         )
-        return *self.apply_inverse_symplecto(xT, yT), theta
+        return self.apply_inverse_symplecto(xT, yT)
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -508,34 +507,11 @@ class Bernoulli_Net:
         self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
         self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
 
-        self.x_collocation, self.y_collocation, theta_collocation = (
+        self.x_collocation, self.y_collocation = (
             self.apply_rejet_kompact(
-                self.x_collocation, self.y_collocation, theta_collocation
+                self.x_collocation, self.y_collocation
             )
         )
-        # self.x_collocation, self.y_collocation, theta_collocation, rho_collocation = (
-        #     self.apply_rejet_kompact(
-        #         self.x_collocation, self.y_collocation, theta_collocation, rho_collocation
-        #     )
-        # )
-
-        x_E = self.a * torch.cos(theta_collocation)
-        y_E = self.b * torch.sin(theta_collocation)
-        self.x_E_tilde, self.y_E_tilde = self.apply_inverse_symplecto(x_E, y_E)
-        # theta_tilde = torch.atan2(y_E_tilde, x_E_tilde)
-        self.rho_tilde_2 = x_E**2 + y_E**2
-        # self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
-        # # self.x_collocation = rho_collocation * torch.cos(theta_tilde)
-        # # self.y_collocation = rho_collocation * torch.sin(theta_tilde)
-
-        # import matplotlib.pyplot as plt
-        # x_test = self
-        # y_test = y_E_tilde
-        # plt.scatter(x_test.detach().cpu(), y_test.detach().cpu())
-        # x_test_T, y_test_T = self.apply_symplecto(x_test, y_test)
-        # plt.scatter(self.x_collocation.detach().cpu(), self.y_collocation.detach().cpu())
-        # plt.scatter(x_test_T.detach().cpu(), y_test_T.detach().cpu())
-        # plt.show()
 
     def get_mes_border(self):
         n = 10_000
