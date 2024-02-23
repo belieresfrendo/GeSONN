@@ -23,7 +23,6 @@ import torch
 import torch.nn as nn
 
 # local imports
-from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import poisson
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
@@ -117,7 +116,7 @@ class Bernoulli_Net:
         self.boundary_condition = deepDict["boundary_condition"]
 
         # Parameters of the compact set K
-        self.a = 0.8
+        self.a = 0.6
         self.b = self.rho_min**2 / self.a
 
         self.create_networks()

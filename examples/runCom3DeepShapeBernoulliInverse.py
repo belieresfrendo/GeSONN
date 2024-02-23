@@ -17,10 +17,10 @@ train = True
 # train = False
 
 deepBernDict = {
-    "pde_learning_rate": 5e-3,
-    "sympnet_learning_rate": 5e-3,
-    "layer_sizes": [2, 10, 20, 10, 1],
-    "nb_of_networks": 4,
+    "pde_learning_rate": 1e-3,
+    "sympnet_learning_rate": 1e-3,
+    "layer_sizes": [2, 10, 30, 10, 1],
+    "nb_of_networks": 3,
     "networks_size": 5,
     "rho_min": 0.5,
     "rho_max": 1,
@@ -30,8 +30,8 @@ deepBernDict = {
     "boundary_condition": "bernoulli",
 }
 
-epochs = 200
-n_collocation = 100_000
+epochs = 10_000
+n_collocation = 1_000_000
 new_training = False
 # new_training = True
 
