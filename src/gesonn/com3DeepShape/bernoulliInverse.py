@@ -154,6 +154,13 @@ class Bernoulli_Net:
             self.u_free_net.parameters(), lr=self.pde_learning_rate
         )
 
+        self.bc_add_net = nn.DataParallel(poisson.PDE_Forward([2,2,1])).to(
+            device
+        )
+        self.bc_add_optimizer = torch.optim.Adam(
+            self.bc_add_net.parameters(), lr=self.pde_learning_rate
+        )
+
     def load_sympnet_layer(
         self, nets, optimizers, checkpoint_nets, checkpoint_optimizers, checkpoint
     ):
@@ -199,6 +206,10 @@ class Bernoulli_Net:
             self.u_free_optimizer.load_state_dict(
                 checkpoint["u_free_optimizer_state_dict"]
             )
+            self.bc_add_net.load_state_dict(checkpoint["bc_add_model_state_dict"])
+            self.bc_add_optimizer.load_state_dict(
+                checkpoint["bc_add_optimizer_state_dict"]
+            )
 
             self.loss = checkpoint["loss"]
 
@@ -237,6 +248,8 @@ class Bernoulli_Net:
         u_optimizer_state,
         u_free_net_state,
         u_free_optimizer_state,
+        bc_add_net_state,
+        bc_add_optimizer_state,
         loss,
         loss_history,
         nb_of_networks,
@@ -257,6 +270,8 @@ class Bernoulli_Net:
                 "u_optimizer_state_dict": u_optimizer_state,
                 "u_free_model_state_dict": u_free_net_state,
                 "u_free_optimizer_state_dict": u_free_optimizer_state,
+                "bc_add_model_state_dict": bc_add_net_state,
+                "bc_add_optimizer_state_dict": bc_add_optimizer_state,
                 "loss": loss,
                 "loss_history": loss_history,
                 "nb_of_networks": nb_of_networks,
@@ -500,7 +515,7 @@ class Bernoulli_Net:
         rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
         bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
         bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - self.rho_tilde_2)
-        # return bc_add
+        # bc_add = self.bc_add_net(x,y)
         return self.u_net(xT, yT) * bc_mul + bc_add
 
     def get_u_free(self, x, y):
@@ -516,7 +531,7 @@ class Bernoulli_Net:
     def apply_rejet_kompact(self, x, y, theta):
         xT, yT = self.apply_symplecto(x, y)
         condition = (xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1
-        xT, yT, theta = (
+        xT, yT = (
             xT[condition][:, None],
             yT[condition][:, None],
             theta[condition][:, None],
@@ -551,20 +566,29 @@ class Bernoulli_Net:
                 self.x_collocation, self.y_collocation, theta_collocation
             )
         )
+        # self.x_collocation, self.y_collocation, theta_collocation, rho_collocation = (
+        #     self.apply_rejet_kompact(
+        #         self.x_collocation, self.y_collocation, theta_collocation, rho_collocation
+        #     )
+        # )
 
         x_E = self.a * torch.cos(theta_collocation)
         y_E = self.b * torch.sin(theta_collocation)
-        x_E_tilde, y_E_tilde = self.apply_inverse_symplecto(x_E, y_E)
-        theta_tilde = torch.atan2(y_E_tilde, x_E_tilde)
-        self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
-        x_E_tilde = torch.sqrt(self.rho_tilde_2) * torch.cos(theta_tilde)
-        y_E_tilde = torch.sqrt(self.rho_tilde_2) * torch.sin(theta_tilde)
-        self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
+        self.x_E_tilde, self.y_E_tilde = self.apply_inverse_symplecto(x_E, y_E)
+        # theta_tilde = torch.atan2(y_E_tilde, x_E_tilde)
+        self.rho_tilde_2 = x_E**2 + y_E**2
+        # self.rho_tilde_2 = x_E_tilde**2 + y_E_tilde**2
+        # # self.x_collocation = rho_collocation * torch.cos(theta_tilde)
+        # # self.y_collocation = rho_collocation * torch.sin(theta_tilde)
 
+        # import matplotlib.pyplot as plt
+        # x_test = self
+        # y_test = y_E_tilde
         # plt.scatter(x_test.detach().cpu(), y_test.detach().cpu())
+        # x_test_T, y_test_T = self.apply_symplecto(x_test, y_test)
         # plt.scatter(self.x_collocation.detach().cpu(), self.y_collocation.detach().cpu())
+        # plt.scatter(x_test_T.detach().cpu(), y_test_T.detach().cpu())
         # plt.show()
-        # raise
 
     def make_collocation_free(self, n_collocation):
         shape = (n_collocation, 1)
@@ -613,7 +637,8 @@ class Bernoulli_Net:
                 self.up_optimizers[i].zero_grad()
                 self.down_optimizers[i].zero_grad()
             self.u_optimizer.zero_grad()
-            self.u_free_optimizer.zero_grad()
+            # self.u_free_optimizer.zero_grad()
+            self.bc_add_optimizer.zero_grad()
 
             # mise à 0 de la loss
             self.loss = torch.tensor([0.0], device=device)
@@ -626,29 +651,33 @@ class Bernoulli_Net:
                 grad_u_2 = (
                     self.left_hand_term(self.x_collocation, self.y_collocation) / n_pts
                 )
-                grad_u_free_2 = (
-                    self.left_free_hand_term(self.x_collocation, self.y_collocation)
-                    / n_collocation
-                )
+                # grad_u_free_2 = (
+                #     self.left_free_hand_term(self.x_collocation, self.y_collocation)
+                #     / n_collocation
+                # )
 
-                dirichlet_loss = 0.5 * (grad_u_2 - grad_u_free_2)
+                # dirichlet_loss = 0.5 * (grad_u_2 - grad_u_free_2)
+                dirichlet_loss = 0.5 * grad_u_2
 
                 # D = dirichlet_loss.sum() / n_collocation * self.Vol
                 D = dirichlet_loss.sum()
-                # P = boundary_loss.sum()
+                P = (self.bc_add_net(self.x_gamma_collocation, self.y_gamma_collocation))**2 + (self.bc_add_net(self.x_E_tilde, self.y_E_tilde)-1)**2
+                P = P.sum()/n_collocation
 
                 # self.loss = (D + 1e3 * P)**2
-                self.loss = D**2
-                self.dirichlet_energy = (
-                    0.5 * grad_u_free_2.sum() / n_collocation * self.Vol
-                )
+                self.loss = D
+                # self.loss = D**2
+                # self.dirichlet_energy = (
+                #     0.5 * grad_u_free_2.sum() / n_collocation * self.Vol
+                # )
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
                 self.up_optimizers[i].step()
                 self.down_optimizers[i].step()
             self.u_optimizer.step()
-            self.u_free_optimizer.step()
+            # self.u_free_optimizer.step()
+            self.bc_add_optimizer.step()
 
             self.loss_history.append(self.loss.item())
 
@@ -666,6 +695,8 @@ class Bernoulli_Net:
                         best_u_optimizer,
                         best_u_free_net,
                         best_u_free_optimizer,
+                        best_bc_add_net,
+                        best_bc_add_optimizer,
                         best_loss,
                         self.loss_history,
                         self.get_physical_parameters(),
@@ -689,6 +720,10 @@ class Bernoulli_Net:
                 best_u_free_optimizer = copy.deepcopy(
                     self.u_free_optimizer.state_dict()
                 )
+                best_bc_add_net = copy.deepcopy(self.bc_add_net.state_dict())
+                best_bc_add_optimizer = copy.deepcopy(
+                    self.bc_add_optimizer.state_dict()
+                )
         tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -705,6 +740,8 @@ class Bernoulli_Net:
                 best_u_optimizer,
                 best_u_free_net,
                 best_u_free_optimizer,
+                best_bc_add_net,
+                best_bc_add_optimizer,
                 best_loss,
                 self.loss_history,
                 self.get_physical_parameters(),
@@ -769,11 +806,11 @@ class Bernoulli_Net:
 
         u_theta_free = self.u_free_net(self.x_free_collocation, self.y_free_collocation).detach().cpu()
         im = ax[1, 1].scatter(
-            xT_free,
-            yT_free,
+            xT,
+            yT,
             s=1,
             # c=u_free_pred,
-            c=u_theta_free,
+            c=self.bc_add_net(self.x_collocation, self.y_collocation).detach().cpu(),
             cmap="gist_ncar",
         )
         fig.colorbar(im, ax=ax[1, 1])
