@@ -30,8 +30,8 @@ deepBernDict = {
     "boundary_condition": "bernoulli",
 }
 
-epochs = 10
-n_collocation = 1_000_000
+epochs = 10_000
+n_collocation = 1000
 new_training = False
 # new_training = True
 

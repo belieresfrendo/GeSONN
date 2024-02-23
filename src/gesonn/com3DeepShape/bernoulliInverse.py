@@ -60,9 +60,7 @@ class Bernoulli_Net:
     }
 
     # constructeur
-    def __init__(self, deepDict, **kwargs):
-
-        deepDict = kwargs.get("deepDict", self.DEFAULT_DEEP_BERN_DICT)
+    def __init__(self, deepDict):
 
         if deepDict.get("pde_learning_rate") == None:
             deepDict["pde_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT[
