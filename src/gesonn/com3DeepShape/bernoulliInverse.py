@@ -124,7 +124,8 @@ class Bernoulli_Net:
 
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(
-            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+            # nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+            nn.DataParallel(G.Symp_Net_Forward(self.networks_size)).to(device)
         )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)

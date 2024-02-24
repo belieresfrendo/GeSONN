@@ -28,8 +28,8 @@ if __name__ == "__main__":
         "to_be_trained": True,
     }
 
-    epochs = 1
-    n_collocation = 100_000
+    epochs = 200
+    n_collocation = 1000
     new_training = False
     # new_training = True
 

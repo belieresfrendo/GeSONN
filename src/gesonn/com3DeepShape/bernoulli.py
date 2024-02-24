@@ -2,8 +2,9 @@
 Author:
     A BELIERES FRENDO (ENSTA Paris)
 Date:
-    05/05/2023
+    24/02/2024
 
+ML for shape optimization
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
@@ -38,7 +39,7 @@ except ModuleNotFoundError:
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is bernoulli.py")
+print(f"torch loaded; device is {device}; script is deepGeometry.py")
 
 
 # ----------------------------------------------------------------------
@@ -46,8 +47,8 @@ print(f"torch loaded; device is {device}; script is bernoulli.py")
 # ----------------------------------------------------------------------
 
 
-class Bernoulli_Net:
-    DEFAULT_DEEP_BERN_DICT = {
+class Geo_Net:
+    DEFAULT_DEEP_GEO_DICT = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 10, 1],
@@ -57,72 +58,70 @@ class Bernoulli_Net:
         "rho_max": 1,
         "file_name": "default",
         "to_be_trained": True,
-        "source_term": "one",
         "boundary_condition": "bernoulli",
     }
-    
+
     # constructeur
-    def __init__(self, deepDict, **kwargs):
+    def __init__(self, **kwargs):
+        deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
 
-        deepDict = kwargs.get("deepDict", self.DEFAULT_DEEP_BERN_DICT)
-
-        if deepDict.get("pde_learning_rate") == None:
-            deepDict["pde_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT["pde_learning_rate"]
-        if deepDict.get("sympnet_learning_rate") == None:
-            deepDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT["sympnet_learning_rate"]
-        if deepDict.get("layer_sizes") == None:
-            deepDict["layer_sizes"] = self.DEFAULT_DEEP_BERN_DICT["layer_sizes"]
-        if deepDict.get("nb_of_networks") == None:
-            deepDict["nb_of_networks"] = self.DEFAULT_DEEP_BERN_DICT[
+        if deepGeoDict.get("pde_learning_rate") == None:
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
+        if deepGeoDict.get("sympnet_learning_rate") == None:
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
+        if deepGeoDict.get("layer_sizes") == None:
+            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
+        if deepGeoDict.get("nb_of_networks") == None:
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
                 "nb_of_networks"
             ]
-        if deepDict.get("networks_size") == None:
-            deepDict["networks_size"] = self.DEFAULT_DEEP_BERN_DICT["networks_size"]
-        if deepDict.get("rho_min") == None:
-            deepDict["rho_min"] = self.DEFAULT_DEEP_BERN_DICT["rho_min"]
-        if deepDict.get("rho_max") == None:
-            deepDict["rho_max"] = self.DEFAULT_DEEP_BERN_DICT["rho_max"]
-        if deepDict.get("file_name") == None:
-            deepDict["file_name"] = self.DEFAULT_DEEP_BERN_DICT["file_name"]
-        if deepDict.get("source_term") == None:
-            deepDict["source_term"] = self.DEFAULT_DEEP_BERN_DICT["source_term"]
-        if deepDict.get("boundary_condition") == None:
-            deepDict["boundary_condition"] = self.DEFAULT_DEEP_BERN_DICT[
+        if deepGeoDict.get("networks_size") == None:
+            deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
+        if deepGeoDict.get("rho_min") == None:
+            deepGeoDict["rho_min"] = self.DEFAULT_DEEP_GEO_DICT["rho_min"]
+        if deepGeoDict.get("rho_max") == None:
+            deepGeoDict["rho_max"] = self.DEFAULT_DEEP_GEO_DICT["rho_max"]
+        if deepGeoDict.get("file_name") == None:
+            deepGeoDict["file_name"] = self.DEFAULT_DEEP_GEO_DICT["file_name"]
+        if deepGeoDict.get("boundary_condition") == None:
+            deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
                 "boundary_condition"
             ]
-        if deepDict.get("to_be_trained") == None:
-            deepDict["to_be_trained"] = self.DEFAULT_DEEP_BERN_DICT["to_be_trained"]
+        if deepGeoDict.get("to_be_trained") == None:
+            deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
 
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/deepShape/net/" + deepDict["file_name"] + ".pth"
+            "./../../../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
-        self.pde_learning_rate = deepDict["pde_learning_rate"]
-        self.sympnet_learning_rate = deepDict["sympnet_learning_rate"]
+        self.pde_learning_rate = deepGeoDict["pde_learning_rate"]
+        self.sympnet_learning_rate = deepGeoDict["sympnet_learning_rate"]
         # Layer parameters
-        self.layer_sizes = deepDict["layer_sizes"]
-        self.nb_of_networks = deepDict["nb_of_networks"]
-        self.networks_size = deepDict["networks_size"]
+        self.layer_sizes = deepGeoDict["layer_sizes"]
+        self.nb_of_networks = deepGeoDict["nb_of_networks"]
+        self.networks_size = deepGeoDict["networks_size"]
         # Geometry of the shape
-        self.rho_min, self.rho_max = deepDict["rho_min"], deepDict["rho_max"]
+        self.rho_min, self.rho_max = deepGeoDict["rho_min"], deepGeoDict["rho_max"]
         self.theta_min, self.theta_max = 0, 2 * torch.pi
         self.Vol = torch.pi * self.rho_max**2
-        # Source term of the Poisson problem
-        self.source_term = deepDict["source_term"]
         # Boundary condition of the Poisson problem
-        self.boundary_condition = deepDict["boundary_condition"]
+        self.boundary_condition = deepGeoDict["boundary_condition"]
+
+        # Parameters of the compact set K
+        self.a = 0.6
+        self.b = self.rho_min**2 / self.a
 
         self.create_networks()
         self.load(self.file_name)
 
-        self.to_be_trained = deepDict["to_be_trained"]
+        self.to_be_trained = deepGeoDict["to_be_trained"]
 
     def sympnet_layer_append(self, nets, optims, i):
-        nets.append(nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device))
+        nets.append(nn.DataParallel(G.Symp_Net_Forward(self.networks_size)).to(device))
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
         )
@@ -246,30 +245,8 @@ class Bernoulli_Net:
         )
 
     def get_metric_tensor(self, x, y):
-        """
-        Calcule le tenseur métrique dans TC, évalué dans un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-
-        Returns
-        -------
-        A_a, A_b, A_c, A_d : 4-uple de floats
-            A = J_T^{-t}*J_T^{-1}(x, y)
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
+        # il faut calculer :
+        # A = J_T^{-t}*J_T^{-1}
 
         T = self.apply_symplecto(x, y)
 
@@ -287,35 +264,6 @@ class Bernoulli_Net:
         return A_a, A_b, A_c, A_d
 
     def get_dn_u(self, x, y):
-        """
-        Retourne le gradient normal dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-
-        Returns
-        -------
-        dn_u : float
-            gradient normal
-        nxT : float
-            1ère coordonnée cartésienne de la normale extérieure à TC
-        nyT : float
-            2ème coordonnée cartésienne de la normale extérieure à TC
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
         xT, yT = self.apply_symplecto(x, y)
 
         J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
@@ -334,38 +282,11 @@ class Bernoulli_Net:
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
 
-        nxT, nyT = self.get_n(x, y)
+        nx, ny = self.get_n(x, y)
 
-        return Jt_dx_u * nxT + Jt_dy_u * nyT, nxT, nyT
+        return Jt_dx_u * nx + Jt_dy_u * ny, nx, ny
 
     def get_n(self, x, y):
-        """
-        Retourne la normale dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-
-        Returns
-        -------
-        nxT : float
-            1ère coordonnée cartésienne de la normale extérieure à TC
-        nyT : float
-            2ème coordonnée cartésienne de la normale extérieure à TC
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
         tx, ty = -y, x
 
         xT, yT = self.apply_symplecto(x, y)
@@ -375,71 +296,17 @@ class Bernoulli_Net:
         J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
         txT, tyT = J_a * tx + J_b * ty, J_c * tx + J_d * ty
         nxT, nyT = tyT, -txT
-        norm_nT = torch.sqrt(nxT**2 + nyT**2)
-        nxT, nyT = nxT / norm_nT, nyT / norm_nT
+        normT = torch.sqrt(nxT**2 + nyT**2)
+        nxT, nyT = nxT / normT, nyT / normT
 
         return nxT, nyT
 
     def get_avg_dn_u(self, x, y, n):
-        """
-        Retourne le gradient normal dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-        n : int
-            nombre de pts de collocation
-
-        Returns
-        -------
-        avg_dn_u : float
-            moyenne du gradient normal sur le bord
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
         dn_u, _, _ = self.get_dn_u(x, y)
-        avg_dn_u = dn_u.sum() / n * self.get_mes_border()
+        avg_dn_u = dn_u.sum() / n
         return avg_dn_u
 
     def left_hand_term(self, x, y):
-        """
-        Retourne l'intégrande du terme de gauche dans TC, calculé à partir d'un point du cercle C
-
-        Parameters
-        ----------
-        self :
-            instance de la classe network
-        x : float
-            1ère coordonnée cartésienne dans le cercle
-        y : float
-            2ème coordonnée cartésienne dans le cercle
-        rho : float
-            1ère coordonnée polaire dans le cercle
-
-        Returns
-        -------
-        A_grad_u_grad_u : float
-            intégrande
-
-        Raises
-        ------
-        KeyError
-            when a key error
-        OtherError
-            when an other error
-        """
-
         u = self.get_u(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
 
@@ -451,27 +318,34 @@ class Bernoulli_Net:
         return A_grad_u_grad_u
 
     def apply_symplecto(self, x, y):
+        x, y = x, y
         for i in range(self.nb_of_networks):
             x, y = x + self.up_nets[i](y), y
             x, y = x, y + self.down_nets[i](x)
         return x, y
-    
+
+    def apply_inverse_symplecto(self, x, y):
+        for i in range(self.nb_of_networks):
+            y = y - self.down_nets[self.nb_of_networks - 1 - i](x)
+            x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
+        return x, y
+
     def get_u(self, x, y):
-        return bc.apply_BC(
-            self.u_net(*self.apply_symplecto(x, y)),
-            x,
-            y,
-            self.rho_min,
-            self.rho_max,
-            name =self.boundary_condition,
-        )
-
-    def get_pen(self, x, y, a=0.8):
+        rho_2 = x**2 + y**2
         xT, yT = self.apply_symplecto(x, y)
-        x_goal = a * x
-        y_goal = 1 / a * y
+        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+        bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
+        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - rho_2 + rhoT_2 - 1)
+        return self.u_net(xT, yT) * bc_mul + bc_add
 
-        return (xT - x_goal) ** 2 + (yT - y_goal) ** 2
+    def apply_rejet_kompact(self, x, y):
+        xT, yT = self.apply_symplecto(x, y)
+        condition = (xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1
+        xT, yT = (
+            xT[condition][:, None],
+            yT[condition][:, None],
+        )
+        return self.apply_inverse_symplecto(xT, yT)
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -480,11 +354,11 @@ class Bernoulli_Net:
         )
         return min_value + (max_value - min_value) * random_numbers
 
-    def make_collocation(self, n_collocation, plotting=False):
+    def make_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
         rho_collocation = torch.sqrt(
-            self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
+            self.random(0, self.rho_max**2, shape, requires_grad=True)
         )
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
@@ -492,24 +366,35 @@ class Bernoulli_Net:
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
+        
+        self.x_collocation, self.y_collocation = (
+            self.apply_rejet_kompact(
+                self.x_collocation, self.y_collocation
+            )
+        )
+        
+    def make_border_collocation(self, n_collocation):
+        shape = (n_collocation, 1)
+        
+        theta_collocation = self.random(
+            self.theta_min, self.theta_max, shape, requires_grad=True
+        )
+        self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
+        self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
 
-        if plotting:
-            self.x_collocation_max = self.rho_max * torch.cos(theta_collocation)
-            self.y_collocation_max = self.rho_max * torch.sin(theta_collocation)
-        self.x_collocation_min = self.rho_min * torch.cos(theta_collocation)
-        self.y_collocation_min = self.rho_min * torch.sin(theta_collocation)
-
-        self.ones = torch.ones(shape, device=device)
 
     def get_mes_border(self):
         n = 10_000
-        theta = torch.linspace(
-            self.theta_min, self.theta_max, n, requires_grad=True, device=device
-        )[:, None]
+        theta = torch.linspace(self.theta_min, self.theta_max, n, requires_grad=True)[
+            :, None
+        ]
         x = self.rho_max * torch.cos(theta)
         y = self.rho_max * torch.sin(theta)
         x, y = self.apply_symplecto(x, y)
-        lenghts = torch.sqrt((x[1:] - x[:-1]) ** 2 + (y[1:] - y[:-1]) ** 2)
+        rho = torch.sqrt(x * x + y * y)
+        lenghts = torch.sqrt(
+            rho[:-1] ** 2 + rho[1:] ** 2 - 2 * (x[:-1] * x[1:] + y[:-1] * y[1:])
+        )
 
         return lenghts.sum()
 
@@ -527,7 +412,7 @@ class Bernoulli_Net:
         except AttributeError:
             best_loss_value = 1e10
 
-        # boucle principale de la descnete de gradient
+        # boucle principale de la descnet ede gradient
         tps1 = time.time()
         for epoch in range(epochs):
             # mise à 0 du gradient
@@ -542,58 +427,16 @@ class Bernoulli_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
+                n_pts = self.x_collocation.size()[0]
+
                 grad_u_2 = self.left_hand_term(
-                    self.x_collocation, self.y_collocation
+                    self.x_collocation,
+                    self.y_collocation,
                 )
+
                 dirichlet_loss = 0.5 * grad_u_2
-
-                # dn_u, _, _ = self.get_dn_u(
-                #     self.x_collocation_max, self.y_collocation_max
-                # )
-                # avg_dn_u = self.get_avg_dn_u(
-                #     self.x_collocation_max, self.y_collocation_max, n_collocation
-                # )
-                # optimality_condition = (dn_u - avg_dn_u) ** 2
-
-                pen = self.get_pen(self.x_collocation_min, self.y_collocation_min)
-
-                alpha = 500
-                # beta = 1/10
-                # if epoch > 200:
-                #     alpha = 0.1
-                #     if epoch >500:
-                #         alpha = 1
-
-                # a_D = 250 * math.log(2 + epoch / 500) / math.log(2)
-                # a_P = 2.5 * math.log(2 + epoch / 500) / math.log(2)
-                # a_N = 1
-
-                D = dirichlet_loss.sum() / n_collocation * self.Vol
-                P = alpha * pen.sum() / n_collocation * self.Vol
-                # N = beta * optimality_condition.sum() / n_collocation * self.get_mes_border()
-                if epoch == 0:
-                    self.D0 = copy.deepcopy(D.item())
-                    self.P0 = copy.deepcopy(P.item())
-                    # self.N0 = copy.deepcopy(N.item())
-
-                # self.loss = (
-                #     (dirichlet_loss + alpha * pen).sum() / n_collocation * self.Vol
-                # )  + 0.01*optimality_condition.sum() / n_collocation * self.get_mes_border()
-
-                # try:
-                #     self.loss = (
-                #         a_D * D / self.D0 + a_P * P / self.P0 #+ a_N * N / self.N0
-                #     )
-                #     print(
-                #         f"{a_D * D.item() / self.D0:5.2e}",
-                #         f"{a_P * P.item() / self.P0:5.2e}",
-                #         # f"{a_N * N.item() / self.N0:5.2e}",
-                #     )
-                # except KeyboardInterrupt:
-                #     self.plot_result(epoch)
-                #     raise
-
-                self.loss = D + P #+ N
+                D = dirichlet_loss.sum() / n_pts * self.Vol
+                self.loss = D
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
@@ -602,21 +445,6 @@ class Bernoulli_Net:
             self.u_optimizer.step()
 
             self.loss_history.append(self.loss.item())
-
-            # if epoch < (50):
-            #     self.make_movie(epoch)
-            # elif epoch < 100 and epoch % 5 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 250 and epoch % 10 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 500 and epoch % 25 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 750 and epoch % 50 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch < 1000 and epoch % 100 == 0:
-            #     self.make_movie(epoch)
-            # elif epoch % 500 == 0:
-            #     self.make_movie(epoch)
 
             if epoch % 500 == 0:
                 print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -690,135 +518,58 @@ class Bernoulli_Net:
         ax[0, 0].set_yscale("symlog", linthresh=1e-4)
         ax[0, 0].set_title("loss history")
 
-        n_visu = 25_000
-        self.make_collocation(n_visu, plotting=True)
-        # n_border = 50_000
-        # theta_border = torch.linspace(
-        #     self.theta_min, self.theta_max, n_border, requires_grad=True, device=device
-        # )[:, None]
-
-        # self.x_collocation_max = self.rho_max * torch.cos(theta_border)
-        # y_max = self.rho_max * torch.sin(theta_border)
-        # x_min = self.rho_min * torch.cos(theta_border)
-        # y_min = self.rho_min * torch.sin(theta_border)
-        xT_max, yT_max = self.apply_symplecto(
-            self.x_collocation_max, self.y_collocation_max
-        )
-        xT_min, yT_min = self.apply_symplecto(
-            self.x_collocation_min, self.y_collocation_min
-        )
+        n_visu = 50_000
+        n_visu_border = 10_000
+        self.make_collocation(n_visu)
+        self.make_border_collocation(n_visu_border)
 
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        u_pred = (
-            self.get_u(self.x_collocation, self.y_collocation)
-            .detach()
-            .cpu()
+        xT_gamma, yT_gamma = self.apply_symplecto(
+            self.x_gamma_collocation, self.y_gamma_collocation
         )
-        dn_u, nx, ny = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
 
-        xT = xT.detach().cpu()
-        yT = yT.detach().cpu()
-
-        # ax[1, 0].quiver(
-        #     xT_max.detach().cpu(),
-        #     yT_max.detach().cpu(),
-        #     nx.detach().cpu(),
-        #     ny.detach().cpu(),
-        #     label="normale sortante",
-        #     color="red",
-        # )
-        ax[1, 0].scatter(
-            xT_min.detach().cpu(),
-            yT_min.detach().cpu(),
-            s=1,
-            color="green",
+        xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
+        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
+        dn_u_pred, _, _ = self.get_dn_u(
+            self.x_gamma_collocation, self.y_gamma_collocation
         )
-        im = ax[1, 0].scatter(
-            xT_max.detach().cpu(),
-            yT_max.detach().cpu(),
-            s=1,
-            c=dn_u.detach().cpu(),
-            cmap="gist_ncar",
+
+        x, y = (
+            self.x_collocation.detach().cpu(),
+            self.y_collocation.detach().cpu(),
         )
-        fig.colorbar(im, ax=ax[1, 0])
-        ax[1, 0].legend()
-        ax[1, 0].set_title("forme optimale")
-        ax[1, 0].set_aspect("equal")
-#
-        # A_grad_u_grad_u = self.left_hand_term(
-        #     self.x_collocation, self.y_collocation
-        # )
+        xT, yT = xT.detach().cpu(), yT.detach().cpu()
+        xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+        xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
 
-        # im = ax[1, 0].scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=A_grad_u_grad_u.detach().cpu(),
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax[1, 0])
-
-        im = ax[1, 1].scatter(
+        im = ax[0, 1].scatter(
             xT,
             yT,
             s=1,
             c=u_pred,
             cmap="gist_ncar",
         )
+        fig.colorbar(im, ax=ax[0, 1])
+        ax[0, 1].set_title("$u_{pred}$")
+        ax[0, 1].set_aspect("equal")
+
+        im = ax[1,0].scatter(
+            x,
+            y,
+            s=1,
+        )
+        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
+        ax[1,0].set_aspect("equal")
+
+        im = ax[1, 1].scatter(
+            xT_gamma,
+            yT_gamma,
+            s=1,
+            c=dn_u_pred.detach().cpu(),
+            cmap="gist_ncar",
+        )
         fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("solution approchée de l'EDP")
+        ax[1, 1].set_title("$\partial_n u_{pred}$")
         ax[1, 1].set_aspect("equal")
 
         plt.show()
-
-
-    def make_movie(self, epoch):
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(figsize=[20, 15])
-
-
-        n_visu = 1000
-        self.make_collocation(n_visu)
-
-        xT_max, yT_max = self.apply_symplecto(
-            self.x_collocation_max, self.y_collocation_max
-        )
-        xT_min, yT_min = self.apply_symplecto(
-            self.x_collocation_min, self.y_collocation_min
-        )
-        x_min_goal = self.a * self.x_collocation_min
-        y_min_goal = 1/self.a * self.y_collocation_min
-
-        dn_u, _, _ = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
-
-        im = ax.scatter(
-            xT_max.detach().cpu(),
-            yT_max.detach().cpu(),
-            s=10,
-            c=dn_u.detach().cpu(),
-            cmap="gist_ncar",
-            label="$|\partial_n u|$ sur la surface libre"
-        )
-
-        ax.scatter(
-            x_min_goal.detach().cpu(),
-            y_min_goal.detach().cpu(),
-            marker="^",
-            s=10,
-            color="black",
-            label="bord exact"
-        )
-        ax.scatter(
-            xT_min.detach().cpu(),
-            yT_min.detach().cpu(),
-            s=5,
-            color="red",
-            label="bord pénalisé"
-        )
-        fig.colorbar(im, ax=ax)
-        ax.legend()
-        ax.set_aspect("equal")
-        plt.title("epoch :" + str(epoch))
-
-        plt.savefig("../data/deepShape/img/" + str(epoch) + ".png")#, dpi=1200)

@@ -4,9 +4,6 @@ Author:
 Date:
     05/05/2023
 
-To run:
-    python3 deepDirichlet.py
-
 ML for shape optimization
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """

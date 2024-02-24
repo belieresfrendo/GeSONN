@@ -7,7 +7,7 @@ import torch
 from gesonn.com3DeepShape import bernoulli
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is runCom3DeepShapebernoulli.py")
+print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py")
 
 if __name__ == "__main__":
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     train = True
     # train = False
 
-    deepBernDict = {
+    deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 10, 1],
@@ -26,14 +26,13 @@ if __name__ == "__main__":
         "networks_size": 5,
         "rho_min": 0.5,
         "rho_max": 1,
-        "file_name": "default",
+        "file_name": "bernoulli",
         "to_be_trained": True,
-        "source_term": "one",
         "boundary_condition": "bernoulli",
     }
 
-    epochs = 25_000
-    n_collocation = 10_000
+    epochs = 200
+    n_collocation = 1000
     new_training = False
     # new_training = True
 
@@ -44,11 +43,11 @@ if __name__ == "__main__":
     if train:
         if new_training:
             try:
-                os.remove("./../outputs/deepShape/net/" + deepBernDict["file_name"] + ".pth")
+                os.remove("./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth")
             except FileNotFoundError:
                 pass
 
-        network = bernoulli.Bernoulli_Net(deepDict=deepBernDict)
+        network = bernoulli.Geo_Net(deepGeoDict=deepGeoDict)
 
 
         if device.type == "cpu":
@@ -58,4 +57,4 @@ if __name__ == "__main__":
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
-        network = bernoulli.Bernoulli_Net(deepDict=deepBernDict)
+        network = bernoulli.Geo_Net(deepGeoDict=deepGeoDict)

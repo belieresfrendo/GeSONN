@@ -32,10 +32,10 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 500
-    n_collocation = 100_000
+    epochs = 200
+    n_collocation = 1000
     new_training = False
-    new_training = True
+    # new_training = True
 
     #==============================================================
     # End of the modifiable area
