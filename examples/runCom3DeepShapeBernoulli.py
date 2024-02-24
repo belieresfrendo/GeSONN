@@ -22,17 +22,18 @@ if __name__ == "__main__":
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 10, 1],
-        "nb_of_networks": 2,
+        "nb_of_networks": 7,
         "networks_size": 5,
         "rho_min": 0.5,
         "rho_max": 1,
         "file_name": "bernoulli",
         "to_be_trained": True,
-        "boundary_condition": "bernoulli",
+        "boundary_condition": "c moua",
+        "a": 0.8,
     }
 
-    epochs = 200
-    n_collocation = 1000
+    epochs = 10_000
+    n_collocation = 10_000
     new_training = False
     # new_training = True
 

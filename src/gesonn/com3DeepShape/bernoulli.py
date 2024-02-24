@@ -59,12 +59,13 @@ class Geo_Net:
         "file_name": "default",
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
+        "a": 0.6,
     }
 
     # constructeur
     def __init__(self, **kwargs):
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
-
+        
         if deepGeoDict.get("pde_learning_rate") == None:
             deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
         if deepGeoDict.get("sympnet_learning_rate") == None:
@@ -87,6 +88,8 @@ class Geo_Net:
             deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
                 "boundary_condition"
             ]
+        if deepGeoDict.get("a") == None:
+            deepGeoDict["a"] = self.DEFAULT_DEEP_GEO_DICT["a"]
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
 
@@ -112,7 +115,7 @@ class Geo_Net:
         self.boundary_condition = deepGeoDict["boundary_condition"]
 
         # Parameters of the compact set K
-        self.a = 0.6
+        self.a = deepGeoDict["a"]
         self.b = self.rho_min**2 / self.a
 
         self.create_networks()
@@ -121,7 +124,7 @@ class Geo_Net:
         self.to_be_trained = deepGeoDict["to_be_trained"]
 
     def sympnet_layer_append(self, nets, optims, i):
-        nets.append(nn.DataParallel(G.Symp_Net_Forward(self.networks_size)).to(device))
+        nets.append(nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device))
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
         )
@@ -533,6 +536,10 @@ class Geo_Net:
         dn_u_pred, _, _ = self.get_dn_u(
             self.x_gamma_collocation, self.y_gamma_collocation
         )
+        avg_dn_u = self.get_avg_dn_u(self.x_gamma_collocation, self.y_gamma_collocation, n_visu_border)
+
+        condition_optimalite = (dn_u_pred - avg_dn_u)**2
+        CD_OPTIM = condition_optimalite.sum()/n_visu_border
 
         x, y = (
             self.x_collocation.detach().cpu(),
@@ -565,11 +572,14 @@ class Geo_Net:
             xT_gamma,
             yT_gamma,
             s=1,
-            c=dn_u_pred.detach().cpu(),
+            c=condition_optimalite.detach().cpu(),
             cmap="gist_ncar",
         )
         fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("$\partial_n u_{pred}$")
+        ax[1, 1].set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
         ax[1, 1].set_aspect("equal")
+
+        print("Dirichlet energy", self.loss.item())
+        print("Condition d'optimalité", CD_OPTIM.item())
 
         plt.show()
