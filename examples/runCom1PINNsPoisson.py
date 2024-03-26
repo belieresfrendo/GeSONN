@@ -33,7 +33,8 @@ if __name__ == "__main__":
     epochs = 200
     n_collocation = 1000
     new_training = False
-    # new_training = True
+    new_training = True
+    save_results = True
 
     #==============================================================
     # End of the modifiable area
@@ -48,7 +49,7 @@ if __name__ == "__main__":
             except FileNotFoundError:
                 pass
 
-        network = poisson.PINNs(PINNsDict=PINNsDict)
+        network = poisson.PINNs(PINNsDict=PINNsDict, save_results=save_results)
 
         if device.type == "cpu":
             tps = network.train(

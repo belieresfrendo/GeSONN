@@ -32,10 +32,11 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 10_000
-    n_collocation = 10_000
+    epochs = 200
+    n_collocation = 1000
     new_training = False
     new_training = True
+    save_results = True
 
     #==============================================================
     # End of the modifiable area
@@ -50,7 +51,7 @@ if __name__ == "__main__":
             except FileNotFoundError:
                 pass
 
-        network = poissonParam.PINNs(PINNsDict=PINNsDict)
+        network = poissonParam.PINNs(PINNsDict=PINNsDict, save_results=save_results)
 
         if device.type == "cpu":
             tps = network.train(

@@ -5,14 +5,16 @@ rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
 
 
-def loss(loss_history):
+def loss(loss_history, save_results):
     _, ax = plt.subplots()
     ax.plot(loss_history)
     ax.set_yscale("symlog", linthresh=1e-4)
+    if save_results:
+        plt.savefig("./../outputs/PINNs/img/loss.png")
     plt.show()
 
 
-def edp(x, y, u, title):
+def edp(x, y, u, title, save_results):
     fig, ax = plt.subplots()
     im = ax.scatter(
         x,
@@ -26,7 +28,8 @@ def edp(x, y, u, title):
     ax.set_aspect("equal")
     ax.set_title(title)
     # ax.legend()
-
+    if save_results:
+        plt.savefig("./../outputs/PINNs/img/edp.png")
     plt.show()
 
 def shape(x, y, title=None):

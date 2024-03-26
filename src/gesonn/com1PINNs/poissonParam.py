@@ -147,6 +147,9 @@ class PINNs:
 
         self.to_be_trained = PINNsDict["to_be_trained"]
 
+        # flag for saving results
+        self.save_results = kwargs.get("save_results", False)
+
     def create_network(self):
         # on utilise l'optimizer Adam
 
@@ -385,7 +388,7 @@ class PINNs:
         return tps2 - tps1
 
     def plot_result(self):
-        makePlots.loss(self.loss_history)
+        makePlots.loss(self.loss_history, self.save_results)
 
         n_visu = 50_000
         self.make_collocation(n_visu)
@@ -411,30 +414,35 @@ class PINNs:
             yT.detach().cpu(),
             u_pred_1.detach().cpu(),
             "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_1[0].item()),
+            self.save_results,
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_2.detach().cpu(),
             "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_2[0].item()),
+            self.save_results,
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_3.detach().cpu(),
             "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_3[0].item()),
+            self.save_results,
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_4.detach().cpu(),
             "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_4[0].item()),
+            self.save_results,
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_5.detach().cpu(),
             "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_5[0].item()),
+            self.save_results,
         )
 
 
