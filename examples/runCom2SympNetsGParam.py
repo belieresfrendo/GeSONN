@@ -31,7 +31,7 @@ if __name__ == "__main__":
     }
 
     epochs = 5_000
-    n_collocation = 100_000
+    n_collocation = 1_000
     new_training = False
     new_training = True
 

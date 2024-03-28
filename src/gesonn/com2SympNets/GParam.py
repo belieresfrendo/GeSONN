@@ -8,7 +8,6 @@ Machine learning code for parametric symplectic maps
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -27,6 +26,7 @@ import torch.nn as nn
 
 from gesonn.com1PINNs import metricTensors
 from gesonn.out1Plot import makePlots
+
 try:
     import torchinfo
 
@@ -50,40 +50,47 @@ class Symp_Net_Forward(nn.DataParallel):
         min_value = -1
         max_value = 1
 
-        n = (n, 1)
+        size = (n, 1)
+        size_t = (1, n)
 
-        self.k1 = torch.nn.parameter.Parameter(
+        self.k = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
+            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
-        self.a1 = torch.nn.parameter.Parameter(
+        self.a = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
+            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
-        self.b1 = torch.nn.parameter.Parameter(
+        self.k_eff = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
+            + (max_value - min_value) * torch.rand(size_t, dtype=torch.double, device=device)
         )
-        # self.k2 = torch.nn.parameter.Parameter(
-        #     min_value
-        #     + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
-        # )
-        # self.b2 = torch.nn.parameter.Parameter(
-        #     min_value
-        #     + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
-        # )
+        self.b = torch.nn.parameter.Parameter(
+            min_value
+            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+        )
+        self.k_mu = torch.nn.parameter.Parameter(
+            min_value
+            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+        )
 
     # forward function -> defines the network structure
     def forward(self, x_or_y, mu):
-        Kx_or_y = torch.einsum("ik,jk->ijk", self.k1, x_or_y)
+        Kx_or_y = torch.einsum("ik,jk->ijk", self.k, x_or_y)
         shape_x_or_y = x_or_y.size()
         ones = torch.ones(shape_x_or_y, device=device)
-        B1 = torch.einsum("ik,jk->ijk", self.b1, ones)
-        A1 = torch.einsum("ik,jk->ijk", self.a1, ones)
-        # A2mu = torch.einsum("ik,jk->ijk", self.k2, mu)
-        # Asigma1 = A1 * torch.tanh(Kx_or_y + B1 + A2mu)
-        Asigma1 = A1 * torch.tanh(Kx_or_y + B1 + mu)
-        return torch.einsum("ik,ijk->jk", self.k1, Asigma1)
+        B = torch.einsum("ik,jk->ijk", self.b, ones)
+        # A = torch.einsum("ik,jk->ijk", self.a, ones)
+        print(B.size())
+        Kmu = torch.einsum("ik,jk->ijk", self.k_mu, mu)
+        print(Kmu.size())
+        # Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
+        sigma = torch.tanh(Kx_or_y + B + Kmu)
+        print(sigma.size())
+        K_eff = torch.einsum("ki, ikj->ijk", self.k_eff, ones)
+        print(K_eff.size())
+        # return torch.einsum("ik,ijk->jk", self.k, Asigma)
+        return torch.einsum("ik,ijk->jk", K_eff, sigma)
 
 
 # ----------------------------------------------------------------------
@@ -410,9 +417,14 @@ class Symp_Net:
         self.make_collocation(n_pts)
 
         x_ex, y_ex = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=self.mu_collocation, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=self.mu_collocation,
+            name=self.name_symplecto,
         )
-        x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation, self.mu_collocation)
+        x_net, y_net = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, self.mu_collocation
+        )
 
         X_net = []
         X_ex = []
@@ -424,8 +436,10 @@ class Symp_Net:
         X_net = np.array(X_net)
         X_ex = np.array(X_ex)
 
-        return max(dist.directed_hausdorff(X_net, X_ex)[0], dist.directed_hausdorff(X_ex, X_net)[0])
-
+        return max(
+            dist.directed_hausdorff(X_net, X_ex)[0],
+            dist.directed_hausdorff(X_ex, X_net)[0],
+        )
 
     def plot_result(self):
 
@@ -435,53 +449,117 @@ class Symp_Net:
         self.make_collocation(n_shape)
         self.ones = torch.ones((n_shape, 1), requires_grad=True, device=device)
         w1 = torch.rand(1, device=device)
-        mu_visu_1 = (w1*self.mu_min + (1-w1)*self.mu_max) * self.ones
+        mu_visu_1 = (w1 * self.mu_min + (1 - w1) * self.mu_max) * self.ones
         w2 = torch.rand(1, device=device)
-        mu_visu_2 = (w2*self.mu_min + (1-w2)*self.mu_max) * self.ones
+        mu_visu_2 = (w2 * self.mu_min + (1 - w2) * self.mu_max) * self.ones
         w3 = torch.rand(1, device=device)
-        mu_visu_3 = (w3*self.mu_min + (1-w3)*self.mu_max) * self.ones
+        mu_visu_3 = (w3 * self.mu_min + (1 - w3) * self.mu_max) * self.ones
         w4 = torch.rand(1, device=device)
-        mu_visu_4 = (w4*self.mu_min + (1-w4)*self.mu_max) * self.ones
+        mu_visu_4 = (w4 * self.mu_min + (1 - w4) * self.mu_max) * self.ones
         w5 = torch.rand(1, device=device)
-        mu_visu_5 = (w5*self.mu_min + (1-w5)*self.mu_max) * self.ones
-
+        mu_visu_5 = (w5 * self.mu_min + (1 - w5) * self.mu_max) * self.ones
 
         x_ex_1, y_ex_1 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=mu_visu_1, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=mu_visu_1,
+            name=self.name_symplecto,
         )
-        x_net_1, y_net_1 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1)
+        x_net_1, y_net_1 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_1
+        )
         x_ex_2, y_ex_2 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=mu_visu_2, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=mu_visu_2,
+            name=self.name_symplecto,
         )
-        x_net_2, y_net_2 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2)
+        x_net_2, y_net_2 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_2
+        )
         x_ex_3, y_ex_3 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=mu_visu_3, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=mu_visu_3,
+            name=self.name_symplecto,
         )
-        x_net_3, y_net_3 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3)
+        x_net_3, y_net_3 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_3
+        )
         x_ex_4, y_ex_4 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=mu_visu_4, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=mu_visu_4,
+            name=self.name_symplecto,
         )
-        x_net_4, y_net_4 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4)
+        x_net_4, y_net_4 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_4
+        )
         x_ex_5, y_ex_5 = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu=mu_visu_5, name=self.name_symplecto
+            self.x_collocation,
+            self.y_collocation,
+            mu=mu_visu_5,
+            name=self.name_symplecto,
         )
-        x_net_5, y_net_5 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5)
+        x_net_5, y_net_5 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_5
+        )
 
         makePlots.shape(x_net_1.detach().cpu(), y_net_1.detach().cpu())
-        makePlots.shape_error(x_net_1.detach().cpu(), y_net_1.detach().cpu(), x_ex_1.detach().cpu(), y_ex_1.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_1[0].item()))
+        makePlots.shape_error(
+            x_net_1.detach().cpu(),
+            y_net_1.detach().cpu(),
+            x_ex_1.detach().cpu(),
+            y_ex_1.detach().cpu(),
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
+            + str(mu_visu_1[0].item()),
+        )
         makePlots.shape(x_net_2.detach().cpu(), y_net_2.detach().cpu())
-        makePlots.shape_error(x_net_2.detach().cpu(), y_net_2.detach().cpu(), x_ex_2.detach().cpu(), y_ex_2.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_2[0].item()))
+        makePlots.shape_error(
+            x_net_2.detach().cpu(),
+            y_net_2.detach().cpu(),
+            x_ex_2.detach().cpu(),
+            y_ex_2.detach().cpu(),
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
+            + str(mu_visu_2[0].item()),
+        )
         makePlots.shape(x_net_3.detach().cpu(), y_net_3.detach().cpu())
-        makePlots.shape_error(x_net_3.detach().cpu(), y_net_3.detach().cpu(), x_ex_3.detach().cpu(), y_ex_3.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_3[0].item()))
+        makePlots.shape_error(
+            x_net_3.detach().cpu(),
+            y_net_3.detach().cpu(),
+            x_ex_3.detach().cpu(),
+            y_ex_3.detach().cpu(),
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
+            + str(mu_visu_3[0].item()),
+        )
         makePlots.shape(x_net_4.detach().cpu(), y_net_4.detach().cpu())
-        makePlots.shape_error(x_net_4.detach().cpu(), y_net_4.detach().cpu(), x_ex_4.detach().cpu(), y_ex_4.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_4[0].item()))
+        makePlots.shape_error(
+            x_net_4.detach().cpu(),
+            y_net_4.detach().cpu(),
+            x_ex_4.detach().cpu(),
+            y_ex_4.detach().cpu(),
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
+            + str(mu_visu_4[0].item()),
+        )
         makePlots.shape(x_net_5.detach().cpu(), y_net_5.detach().cpu())
-        makePlots.shape_error(x_net_5.detach().cpu(), y_net_5.detach().cpu(), x_ex_5.detach().cpu(), y_ex_5.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"+str(mu_visu_5[0].item()))
+        makePlots.shape_error(
+            x_net_5.detach().cpu(),
+            y_net_5.detach().cpu(),
+            x_ex_5.detach().cpu(),
+            y_ex_5.detach().cpu(),
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
+            + str(mu_visu_5[0].item()),
+        )
         makePlots.param_shape(
-            x_net_1.detach().cpu(), y_net_1.detach().cpu(),
-            x_net_2.detach().cpu(), y_net_2.detach().cpu(),
-            x_net_3.detach().cpu(), y_net_3.detach().cpu(),
-            x_net_4.detach().cpu(), y_net_4.detach().cpu(),
-            x_net_5.detach().cpu(), y_net_5.detach().cpu(),
+            x_net_1.detach().cpu(),
+            y_net_1.detach().cpu(),
+            x_net_2.detach().cpu(),
+            y_net_2.detach().cpu(),
+            x_net_3.detach().cpu(),
+            y_net_3.detach().cpu(),
+            x_net_4.detach().cpu(),
+            y_net_4.detach().cpu(),
+            x_net_5.detach().cpu(),
+            y_net_5.detach().cpu(),
             title="superposition of learned shapes",
         )
