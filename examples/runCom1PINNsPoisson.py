@@ -45,7 +45,7 @@ if __name__ == "__main__":
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/PINNs/net/poisson_" + PINNsDict["file_name"] + ".pth"
+                    "./../outputs/PINNs/net/" + PINNsDict["file_name"] + ".pth"
                 )
             except FileNotFoundError:
                 pass

@@ -13,41 +13,63 @@ if __name__ == "__main__":
     train = True
     # train = False
 
+    # ==============================================================
+    # Parameters to be modified freely by the user
+    # ==============================================================
+
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [3, 10, 20, 10, 1],
-        "nb_of_networks": 4,
+        "nb_of_networks": 2,
         "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 2,
-        "file_name": "test",
+        "file_name": "default",
         "to_be_trained": True,
         "source_term": "ellipse",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 5_000
-    n_collocation = 50_000
+    epochs = 2_000
+    n_collocation = 10_000
     new_training = False
     new_training = True
+    save_plots = False
+    save_plots = True
+
+    # ==============================================================
+    # End of the modifiable area
+    # ==============================================================
 
     if train:
         if new_training:
             try:
-                os.remove("./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth")
+                os.remove(
+                    "./../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
+                )
+                print("bite")
             except FileNotFoundError:
                 pass
 
         network = geometryParam.Geo_Net(deepGeoDict=deepGeoDict)
 
-
         if device.type == "cpu":
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         else:
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:

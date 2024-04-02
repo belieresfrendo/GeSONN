@@ -54,15 +54,18 @@ class Symp_Net_Forward(nn.DataParallel):
 
         self.k = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+            + (max_value - min_value)
+            * torch.rand(size, dtype=torch.double, device=device)
         )
         self.k_mu = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+            + (max_value - min_value)
+            * torch.rand(size, dtype=torch.double, device=device)
         )
         self.k_eff = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+            + (max_value - min_value)
+            * torch.rand(size, dtype=torch.double, device=device)
         )
         # self.a = torch.nn.parameter.Parameter(
         #     min_value
@@ -70,7 +73,8 @@ class Symp_Net_Forward(nn.DataParallel):
         # )
         self.b = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+            + (max_value - min_value)
+            * torch.rand(size, dtype=torch.double, device=device)
         )
 
     # forward function -> defines the network structure
@@ -137,7 +141,12 @@ class Symp_Net:
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/SympNets/net/" + SympNetsDict["file_name"] + ".pth"
+            "./../../../outputs/SympNets/net/param_"
+            + SympNetsDict["file_name"]
+            + ".pth"
+        )
+        self.fig_storage = (
+            "./../outputs/SympNets/param_" + SympNetsDict["file_name"]
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
@@ -303,6 +312,7 @@ class Symp_Net:
         n_collocation = kwargs.get("n_collocation", 10000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde ?
         try:
@@ -396,7 +406,7 @@ class Symp_Net:
             pass
 
         if plot_history:
-            self.plot_result()
+            self.plot_result(save_plots)
         return tps2 - tps1
 
     @staticmethod
@@ -435,9 +445,9 @@ class Symp_Net:
             dist.directed_hausdorff(X_ex, X_net)[0],
         )
 
-    def plot_result(self):
+    def plot_result(self, save_plots):
 
-        makePlots.loss(self.loss_history)
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_shape = 10_000
         self.make_collocation(n_shape)
@@ -499,48 +509,83 @@ class Symp_Net:
             self.x_collocation, self.y_collocation, mu_visu_5
         )
 
-        makePlots.shape(x_net_1.detach().cpu(), y_net_1.detach().cpu())
+        makePlots.shape(
+            x_net_1.detach().cpu(),
+            y_net_1.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_1",
+        )
         makePlots.shape_error(
             x_net_1.detach().cpu(),
             y_net_1.detach().cpu(),
             x_ex_1.detach().cpu(),
             y_ex_1.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_1",
             title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
             + str(mu_visu_1[0].item()),
         )
-        makePlots.shape(x_net_2.detach().cpu(), y_net_2.detach().cpu())
+        makePlots.shape(
+            x_net_2.detach().cpu(),
+            y_net_2.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_2",
+        )
         makePlots.shape_error(
             x_net_2.detach().cpu(),
             y_net_2.detach().cpu(),
             x_ex_2.detach().cpu(),
             y_ex_2.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_2",
             title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
             + str(mu_visu_2[0].item()),
         )
-        makePlots.shape(x_net_3.detach().cpu(), y_net_3.detach().cpu())
+        makePlots.shape(
+            x_net_3.detach().cpu(),
+            y_net_3.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_3",
+        )
         makePlots.shape_error(
             x_net_3.detach().cpu(),
             y_net_3.detach().cpu(),
             x_ex_3.detach().cpu(),
             y_ex_3.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_3",
             title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
             + str(mu_visu_3[0].item()),
         )
-        makePlots.shape(x_net_4.detach().cpu(), y_net_4.detach().cpu())
+        makePlots.shape(
+            x_net_4.detach().cpu(),
+            y_net_4.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_4",
+        )
         makePlots.shape_error(
             x_net_4.detach().cpu(),
             y_net_4.detach().cpu(),
             x_ex_4.detach().cpu(),
             y_ex_4.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_4",
             title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
             + str(mu_visu_4[0].item()),
         )
-        makePlots.shape(x_net_5.detach().cpu(), y_net_5.detach().cpu())
+        makePlots.shape(
+            x_net_5.detach().cpu(),
+            y_net_5.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_5",
+        )
         makePlots.shape_error(
             x_net_5.detach().cpu(),
             y_net_5.detach().cpu(),
             x_ex_5.detach().cpu(),
             y_ex_5.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_5",
             title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
             + str(mu_visu_5[0].item()),
         )
@@ -555,5 +600,7 @@ class Symp_Net:
             y_net_4.detach().cpu(),
             x_net_5.detach().cpu(),
             y_net_5.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_5",
             title="superposition of learned shapes",
         )

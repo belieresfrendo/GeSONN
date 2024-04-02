@@ -385,9 +385,9 @@ class PINNs:
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred.detach().cpu(),
-            "Solution de l'EDP tensorisée",
             save_plots,
             self.fig_storage,
+            title="Solution de l'EDP tensorisée",
         )
 
 

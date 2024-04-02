@@ -100,7 +100,10 @@ class Geo_Net:
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
+            "./../../../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
+        )
+        self.fig_storage = (
+            "./../outputs/deepShape/img/param_" + deepGeoDict["file_name"]
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
@@ -420,6 +423,7 @@ class Geo_Net:
         n_collocation = kwargs.get("n_collocation", 10_000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde ?
         try:
@@ -520,7 +524,7 @@ class Geo_Net:
             pass
 
         if plot_history:
-            self.plot_result(epoch)
+            self.plot_result(save_plots)
 
         return tps2 - tps1
 
@@ -528,9 +532,9 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, derivative=False, random=False):
+    def plot_result(self, save_plots):
 
-        makePlots.loss(self.loss_history)
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 50_000
         self.make_collocation(n_visu)
@@ -583,13 +587,17 @@ class Geo_Net:
                 mu=mu_visu_1,
                 name=self.source_term
             ).detach().cpu(),
-            "terme source",
+            save_plots,
+            self.fig_storage + "_source_1",
+            title="terme source",
         )
         makePlots.edp(
             xT_1.detach().cpu(),
             yT_1.detach().cpu(),
             u_pred_1.detach().cpu(),
-            "EDP",
+            save_plots,
+            self.fig_storage + "_edp_1",
+            title="EDP",
         )
         makePlots.edp(
             xT_2.detach().cpu(),
@@ -599,13 +607,17 @@ class Geo_Net:
                 mu=mu_visu_2,
                 name=self.source_term
             ).detach().cpu(),
-            "terme source",
+            save_plots,
+            self.fig_storage + "_source_2",
+            title="terme source",
         )
         makePlots.edp(
             xT_2.detach().cpu(),
             yT_2.detach().cpu(),
             u_pred_2.detach().cpu(),
-            "EDP",
+            save_plots,
+            self.fig_storage + "_edp_2",
+            title="EDP",
         )
         makePlots.edp(
             xT_3.detach().cpu(),
@@ -615,13 +627,17 @@ class Geo_Net:
                 mu=mu_visu_3,
                 name=self.source_term
             ).detach().cpu(),
-            "terme source",
+            save_plots,
+            self.fig_storage + "_source_3",
+            title="terme source",
         )
         makePlots.edp(
             xT_3.detach().cpu(),
             yT_3.detach().cpu(),
             u_pred_3.detach().cpu(),
-            "EDP",
+            save_plots,
+            self.fig_storage + "_edp_3",
+            title="EDP",
         )
         makePlots.edp(
             xT_4.detach().cpu(),
@@ -631,13 +647,17 @@ class Geo_Net:
                 mu=mu_visu_4,
                 name=self.source_term
             ).detach().cpu(),
-            "terme source",
+            save_plots,
+            self.fig_storage + "_source_4",
+            title="terme source",
         )
         makePlots.edp(
             xT_4.detach().cpu(),
             yT_4.detach().cpu(),
             u_pred_4.detach().cpu(),
-            "EDP",
+            save_plots,
+            self.fig_storage + "_edp_4",
+            title="EDP",
         )
         makePlots.edp(
             xT_5.detach().cpu(),
@@ -647,13 +667,17 @@ class Geo_Net:
                 mu=mu_visu_5,
                 name=self.source_term
             ).detach().cpu(),
-            "terme source",
+            save_plots,
+            self.fig_storage + "_source_5",
+            title="terme source",
         )
         makePlots.edp(
             xT_5.detach().cpu(),
             yT_5.detach().cpu(),
             u_pred_5.detach().cpu(),
-            "EDP",
+            save_plots,
+            self.fig_storage + "_edp_5",
+            title="EDP",
         )
 
         makePlots.param_shape(
@@ -662,5 +686,7 @@ class Geo_Net:
             xT_border_3.detach().cpu(), yT_border_3.detach().cpu(),
             xT_border_4.detach().cpu(), yT_border_4.detach().cpu(),
             xT_border_5.detach().cpu(), yT_border_5.detach().cpu(),
+            save_plots,
+            self.fig_storage,
             title="superposition of learned shapes",
         )

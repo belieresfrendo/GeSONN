@@ -11,7 +11,6 @@ ML for shape optimization
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -70,15 +69,17 @@ class Geo_Net:
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
 
         if deepGeoDict.get("pde_learning_rate") == None:
-            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pde_learning_rate"
+            ]
         if deepGeoDict.get("sympnet_learning_rate") == None:
-            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_learning_rate"
+            ]
         if deepGeoDict.get("layer_sizes") == None:
             deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
         if deepGeoDict.get("nb_of_networks") == None:
-            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
-                "nb_of_networks"
-            ]
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
         if deepGeoDict.get("networks_size") == None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
         if deepGeoDict.get("rho_min") == None:
@@ -95,7 +96,6 @@ class Geo_Net:
             ]
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
-
 
         # Storage file
         self.file_name = (
@@ -344,7 +344,7 @@ class Geo_Net:
             y,
             self.rho_min,
             self.rho_max,
-            name =self.boundary_condition,
+            name=self.boundary_condition,
         )
 
     @staticmethod
@@ -510,31 +510,32 @@ class Geo_Net:
         xT_border, yT_border = self.apply_symplecto(x_border, y_border)
         dn_u, _, _ = self.get_dn_u(x_border, y_border)
 
-
         makePlots.edp(
             xT_border.detach().cpu(),
             yT_border.detach().cpu(),
             dn_u.detach().cpu(),
-            "gradient normal",
             save_plots,
             self.fig_storage + "_gradn",
+            title="gradient normal",
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             sourceTerms.get_f(
                 *self.apply_symplecto(self.x_collocation, self.y_collocation),
-                name=self.source_term
-            ).detach().cpu(),
-            "terme source",
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source",
+            title="terme source",
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred.detach().cpu(),
-            "EDP",
             save_plots,
             self.fig_storage + "_pde",
+            title="EDP",
         )
