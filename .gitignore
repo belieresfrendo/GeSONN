@@ -12,6 +12,7 @@ src/gesonn.egg-info
 
 # image files
 *.png
+*.pdf
 
 # networks
 *.pth

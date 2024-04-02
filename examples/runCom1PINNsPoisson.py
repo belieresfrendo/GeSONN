@@ -11,9 +11,9 @@ print(f"torch loaded; device is {device}")
 
 if __name__ == "__main__":
 
-    #==============================================================
+    # ==============================================================
     # Parameters to be modified freely by the user
-    #==============================================================
+    # ==============================================================
 
     train = True
     # train = False
@@ -23,21 +23,23 @@ if __name__ == "__main__":
         "layer_sizes": [2, 10, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "cercle",
+        "file_name": "default",
         "symplecto_name": None,
         "to_be_trained": train,
         "source_term": "one",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 1000
-    n_collocation = 10_000
+    epochs = 10
+    n_collocation = 1000
     new_training = False
     new_training = True
-
-    #==============================================================
+    save_plots = False
+    save_plots = True
+    
+    # ==============================================================
     # End of the modifiable area
-    #==============================================================
+    # ==============================================================
 
     if train:
         if new_training:
@@ -52,10 +54,18 @@ if __name__ == "__main__":
 
         if device.type == "cpu":
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
             )
         else:
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:

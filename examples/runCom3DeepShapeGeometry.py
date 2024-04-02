@@ -11,9 +11,9 @@ print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py"
 
 if __name__ == "__main__":
 
-    #==============================================================
+    # ==============================================================
     # Parameters to be modified freely by the user
-    #==============================================================
+    # ==============================================================
 
     train = True
     # train = False
@@ -26,35 +26,48 @@ if __name__ == "__main__":
         "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "test",
+        "file_name": "default",
         "to_be_trained": True,
         "source_term": "exp",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 500
-    n_collocation = 100_000
+    epochs = 10
+    n_collocation = 1000
     new_training = False
     new_training = True
+    save_plots = False
+    save_plots = True
 
-    #==============================================================
+    # ==============================================================
     # End of the modifiable area
-    #==============================================================
+    # ==============================================================
 
     if train:
         if new_training:
             try:
-                os.remove("./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth")
+                os.remove(
+                    "./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
+                )
             except FileNotFoundError:
                 pass
 
         network = geometry.Geo_Net(deepGeoDict=deepGeoDict)
 
-
         if device.type == "cpu":
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         else:
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:

@@ -101,6 +101,7 @@ class Geo_Net:
         self.file_name = (
             "./../../../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
         )
+        self.fig_storage = "./../outputs/deepShape/img/" + deepGeoDict["file_name"]
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
@@ -388,6 +389,7 @@ class Geo_Net:
         n_collocation = kwargs.get("n_collocation", 10_000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde ?
         try:
@@ -485,7 +487,7 @@ class Geo_Net:
             pass
 
         if plot_history:
-            self.plot_result(epoch)
+            self.plot_result(save_plots)
 
         return tps2 - tps1
 
@@ -493,9 +495,9 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, derivative=False, random=False):
+    def plot_result(self, save_plots):
 
-        makePlots.loss(self.loss_history)
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 50_000
         self.make_collocation(n_visu)
@@ -514,6 +516,8 @@ class Geo_Net:
             yT_border.detach().cpu(),
             dn_u.detach().cpu(),
             "gradient normal",
+            save_plots,
+            self.fig_storage + "_gradn",
         )
         makePlots.edp(
             xT.detach().cpu(),
@@ -523,10 +527,14 @@ class Geo_Net:
                 name=self.source_term
             ).detach().cpu(),
             "terme source",
+            save_plots,
+            self.fig_storage + "_source",
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred.detach().cpu(),
             "EDP",
+            save_plots,
+            self.fig_storage + "_pde",
         )

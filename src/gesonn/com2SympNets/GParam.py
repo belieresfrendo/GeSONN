@@ -51,25 +51,24 @@ class Symp_Net_Forward(nn.DataParallel):
         max_value = 1
 
         size = (n, 1)
-        size_t = (1, n)
 
         self.k = torch.nn.parameter.Parameter(
             min_value
             + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
-        self.a = torch.nn.parameter.Parameter(
+        self.k_mu = torch.nn.parameter.Parameter(
             min_value
             + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
         self.k_eff = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size_t, dtype=torch.double, device=device)
-        )
-        self.b = torch.nn.parameter.Parameter(
-            min_value
             + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
-        self.k_mu = torch.nn.parameter.Parameter(
+        # self.a = torch.nn.parameter.Parameter(
+        #     min_value
+        #     + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+        # )
+        self.b = torch.nn.parameter.Parameter(
             min_value
             + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
         )
@@ -81,16 +80,11 @@ class Symp_Net_Forward(nn.DataParallel):
         ones = torch.ones(shape_x_or_y, device=device)
         B = torch.einsum("ik,jk->ijk", self.b, ones)
         # A = torch.einsum("ik,jk->ijk", self.a, ones)
-        print(B.size())
         Kmu = torch.einsum("ik,jk->ijk", self.k_mu, mu)
-        print(Kmu.size())
         # Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
         sigma = torch.tanh(Kx_or_y + B + Kmu)
-        print(sigma.size())
-        K_eff = torch.einsum("ki, ikj->ijk", self.k_eff, ones)
-        print(K_eff.size())
         # return torch.einsum("ik,ijk->jk", self.k, Asigma)
-        return torch.einsum("ik,ijk->jk", K_eff, sigma)
+        return torch.einsum("ik,ijk->jk", self.k_eff, sigma)
 
 
 # ----------------------------------------------------------------------

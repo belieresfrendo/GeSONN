@@ -5,14 +5,16 @@ rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
 
 
-def loss(loss_history):
+def loss(loss_history, save_plots, name):
     _, ax = plt.subplots()
     ax.plot(loss_history)
     ax.set_yscale("symlog", linthresh=1e-4)
+    if save_plots:
+        plt.savefig(name + "_loss.pdf")
     plt.show()
 
 
-def edp(x, y, u, title):
+def edp(x, y, u, title, save_plots, name):
     fig, ax = plt.subplots()
     im = ax.scatter(
         x,
@@ -20,16 +22,15 @@ def edp(x, y, u, title):
         s=1,
         c=u,
         cmap="gist_ncar",
-        # cmap=colormaps.make_colormap(),
     )
     fig.colorbar(im, ax=ax)
     ax.set_aspect("equal")
     ax.set_title(title)
-    # ax.legend()
-
+    if save_plots:
+        plt.savefig(name + ".pdf")
     plt.show()
 
-def shape(x, y, title=None):
+def shape(x, y, save_plots, name, title=None):
     _, ax = plt.subplots()
     ax.scatter(
         x,
@@ -39,6 +40,8 @@ def shape(x, y, title=None):
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)
+    if save_plots:
+        plt.savefig(name + "_sympnet.pdf")
 
     plt.show()
 
@@ -56,7 +59,7 @@ def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, title=None):
     plt.show()
 
 
-def shape_error(x, y, u, v, title=None):
+def shape_error(x, y, u, v, save_plots, name, title=None):
     _, ax = plt.subplots()
     ax.scatter(
         u,
@@ -76,7 +79,8 @@ def shape_error(x, y, u, v, title=None):
     ax.legend()
     if title is not None:
         ax.set_title(title)
-
+    if save_plots:
+        plt.savefig(name + "_sympnet_error.pdf")
     plt.show()
 
 def edp_shape_error(edp, x, y, u, v, title=None):

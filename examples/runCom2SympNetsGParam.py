@@ -34,6 +34,8 @@ if __name__ == "__main__":
     n_collocation = 1_000
     new_training = False
     new_training = True
+    save_plots = False
+    save_plots = True
 
     #==============================================================
     # End of the modifiable area
@@ -52,11 +54,11 @@ if __name__ == "__main__":
 
         if device.type == "cpu":
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs, n_collocation=n_collocation, plot_history=True, save_plots=save_plots
             )
         else:
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs, n_collocation=n_collocation, plot_history=True, save_plots=save_plots
             )
         print(f"Computational time: {str(tps)[:4]} sec.")
 
