@@ -11,9 +11,9 @@ print(f"torch loaded; device is {device}")
 
 if __name__ == "__main__":
 
-    #==============================================================
+    # ==============================================================
     # Parameters to be modified freely by the user
-    #==============================================================
+    # ==============================================================
 
     train = True
     # train = False
@@ -23,40 +23,49 @@ if __name__ == "__main__":
         "layer_sizes": [2, 10, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "cercle",
+        "file_name": "default",
         "symplecto_name": None,
         "to_be_trained": train,
         "source_term": "one",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 200
+    epochs = 10
     n_collocation = 1000
     new_training = False
     new_training = True
-    save_results = True
-
-    #==============================================================
+    save_plots = False
+    save_plots = True
+    
+    # ==============================================================
     # End of the modifiable area
-    #==============================================================
+    # ==============================================================
 
     if train:
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/PINNs/net/poisson_" + PINNsDict["file_name"] + ".pth"
+                    "./../outputs/PINNs/net/" + PINNsDict["file_name"] + ".pth"
                 )
             except FileNotFoundError:
                 pass
 
-        network = poisson.PINNs(PINNsDict=PINNsDict, save_results=save_results)
+        network = poisson.PINNs(PINNsDict=PINNsDict)
 
         if device.type == "cpu":
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
             )
         else:
-            tps = network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
+            tps = network.train(
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
+            )
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:

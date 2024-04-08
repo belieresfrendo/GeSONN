@@ -5,34 +5,33 @@ rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
 
 
-def loss(loss_history, save_results):
+def loss(loss_history, save_plots, name):
     _, ax = plt.subplots()
     ax.plot(loss_history)
     ax.set_yscale("symlog", linthresh=1e-4)
-    if save_results:
-        plt.savefig("./../outputs/PINNs/img/loss.png")
+    if save_plots:
+        plt.savefig(name + "_loss.pdf")
     plt.show()
 
 
-def edp(x, y, u, title, save_results):
-    fig, ax = plt.subplots()
+def edp(x, y, u, save_plots, name, title=None):
+    fig, ax = plt.subplots(figsize = (100 / 72.0, 80 / 72.0))
     im = ax.scatter(
         x,
         y,
         s=1,
         c=u,
         cmap="gist_ncar",
-        # cmap=colormaps.make_colormap(),
     )
     fig.colorbar(im, ax=ax)
     ax.set_aspect("equal")
-    ax.set_title(title)
-    # ax.legend()
-    if save_results:
-        plt.savefig("./../outputs/PINNs/img/edp.png")
+    if title is not None:
+        ax.set_title(title)
+    if save_plots:
+        plt.savefig(name + ".pdf")
     plt.show()
 
-def shape(x, y, title=None):
+def shape(x, y, save_plots, name, title=None):
     _, ax = plt.subplots()
     ax.scatter(
         x,
@@ -42,10 +41,12 @@ def shape(x, y, title=None):
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)
+    if save_plots:
+        plt.savefig(name + ".pdf")
 
     plt.show()
 
-def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, title=None):
+def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=None):
     _, ax = plt.subplots()
     ax.scatter(x1, y1, s=1)
     ax.scatter(x2, y2, s=1)
@@ -55,11 +56,13 @@ def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, title=None):
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)
+    if save_plots:
+        plt.savefig(name + "_superposititon.pdf")
 
     plt.show()
 
 
-def shape_error(x, y, u, v, title=None):
+def shape_error(x, y, u, v, save_plots, name, title=None):
     _, ax = plt.subplots()
     ax.scatter(
         u,
@@ -79,7 +82,8 @@ def shape_error(x, y, u, v, title=None):
     ax.legend()
     if title is not None:
         ax.set_title(title)
-
+    if save_plots:
+        plt.savefig(name + "_error.pdf")
     plt.show()
 
 def edp_shape_error(edp, x, y, u, v, title=None):

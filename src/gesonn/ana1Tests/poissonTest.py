@@ -37,7 +37,7 @@ def main_poisson_test(testsDict, source_term):
         Ufem = torch.tensor(dict["u"], requires_grad=True, device=device)[:, None]
 
         # Chargement de la solution PINNs
-        simuPath = "./../outputs/PINNs/net/poisson_" + simuDict["file_name"] + ".pth"
+        simuPath = "./../outputs/PINNs/net/" + simuDict["file_name"] + ".pth"
         # Chargement du PINNs
         if not os.path.isfile(simuPath):
             print(f"Empty file for simulation {simu_name}. Computation launched")
@@ -47,7 +47,9 @@ def main_poisson_test(testsDict, source_term):
                     epochs=1_000, n_collocation=10_000, plot_history=False
                 )
             else:
-                tps = network.train(epochs=10_000, n_collocation=100_000, plot_history=False)
+                tps = network.train(
+                    epochs=10_000, n_collocation=100_000, plot_history=False
+                )
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = poisson.PINNs(PINNsDict=simuDict)
@@ -76,6 +78,7 @@ def main_poisson_test(testsDict, source_term):
         print("erreur L2 : ", errL2.item())
 
         # Affichage
-        makePlots.edp(X_visu, Y_visu, Unet, "PINNs")
-        makePlots.edp(X_visu, Y_visu, Ufem, "FEM")
-        makePlots.edp(X_visu, Y_visu, err, "error")
+        fig_path = "./../outputs/PINNs/img/" + simuDict["file_name"]
+        makePlots.edp(X_visu, Y_visu, Unet, True, fig_path + "_PINNS", "PINNs")
+        makePlots.edp(X_visu, Y_visu, Ufem, True, fig_path + "_FEM", "FEM")
+        makePlots.edp(X_visu, Y_visu, err, True, fig_path + "_ERR", "error")

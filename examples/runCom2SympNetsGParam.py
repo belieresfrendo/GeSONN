@@ -10,9 +10,9 @@ print(f"torch loaded; device is {device}")
 
 if __name__ == "__main__":
 
-    #==============================================================
+    # ==============================================================
     # Parameters to be modified freely by the user
-    #==============================================================
+    # ==============================================================
 
     train = True
     # train = False
@@ -31,19 +31,21 @@ if __name__ == "__main__":
     }
 
     epochs = 5_000
-    n_collocation = 100_000
+    n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
+    save_plots = False
+    save_plots = True
 
-    #==============================================================
+    # ==============================================================
     # End of the modifiable area
-    #==============================================================
+    # ==============================================================
 
     if train:
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/SympNets/net/" + SympNetsDict["file_name"] + ".pth"
+                    "./../outputs/SympNets/net/param" + SympNetsDict["file_name"] + ".pth"
                 )
             except FileNotFoundError:
                 pass
@@ -52,11 +54,17 @@ if __name__ == "__main__":
 
         if device.type == "cpu":
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
             )
         else:
             tps = network.train(
-                epochs=epochs, n_collocation=n_collocation, plot_history=True
+                epochs=epochs,
+                n_collocation=n_collocation,
+                plot_history=True,
+                save_plots=save_plots,
             )
         print(f"Computational time: {str(tps)[:4]} sec.")
 

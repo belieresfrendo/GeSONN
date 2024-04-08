@@ -9,7 +9,6 @@ Solve poisson EDP in a shape genereted by a symplectomorphism
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -116,7 +115,10 @@ class PINNs:
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/PINNs/net/poisson_" + PINNsDict["file_name"] + ".pth"
+            "./../../../outputs/PINNs/net/" + PINNsDict["file_name"] + ".pth"
+        )
+        self.fig_storage = (
+            "./../outputs/PINNs/img/" + PINNsDict["file_name"]
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
@@ -245,7 +247,10 @@ class PINNs:
         u = self.get_u(x, y)
 
         # terme source
-        f = sourceTerms.get_f(*metricTensors.apply_symplecto(x, y, name=self.name_symplecto), name=self.source_term)
+        f = sourceTerms.get_f(
+            *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            name=self.source_term,
+        )
 
         return f * u
 
@@ -286,6 +291,7 @@ class PINNs:
         n_collocation = kwargs.get("n_collocation", 10000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde
         try:
@@ -361,12 +367,13 @@ class PINNs:
             pass
 
         if plot_history:
-            self.plot_result()
+            self.plot_result(save_plots)
 
         return tps2 - tps1
 
-    def plot_result(self):
-        makePlots.loss(self.loss_history, self.save_results)
+    def plot_result(self, save_plots):
+
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 50_000
         self.make_collocation(n_visu)
@@ -381,8 +388,9 @@ class PINNs:
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred.detach().cpu(),
-            "Solution de l'EDP tensorisée",
-            self.save_results,
+            save_plots,
+            self.fig_storage,
+            title="Solution de l'EDP tensorisée",
         )
 
 

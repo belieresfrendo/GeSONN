@@ -10,7 +10,6 @@ symplectic map where the source term is a parametric function.
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -123,8 +122,9 @@ class PINNs:
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/PINNs/net/poisson_" + PINNsDict["file_name"] + ".pth"
+            "./../../../outputs/PINNs/net/param_" + PINNsDict["file_name"] + ".pth"
         )
+        self.fig_storage = "./../outputs/PINNs/img/param_" + PINNsDict["file_name"]
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
@@ -275,7 +275,7 @@ class PINNs:
             self.rho_max,
             name=self.boundary_condition,
         )
-    
+
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
         random_numbers = torch.rand(
@@ -289,9 +289,7 @@ class PINNs:
         rho_collocation = torch.sqrt(
             self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
         )
-        theta_collocation = self.random(
-            0, 2 * torch.math.pi, shape, requires_grad=True
-        )
+        theta_collocation = self.random(0, 2 * torch.math.pi, shape, requires_grad=True)
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
@@ -306,6 +304,7 @@ class PINNs:
         n_collocation = kwargs.get("n_collocation", 10000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde
         try:
@@ -383,20 +382,20 @@ class PINNs:
             pass
 
         if plot_history:
-            self.plot_result()
+            self.plot_result(save_plots)
 
         return tps2 - tps1
 
-    def plot_result(self):
-        makePlots.loss(self.loss_history, self.save_results)
+    def plot_result(self, save_plots):
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 50_000
         self.make_collocation(n_visu)
         self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
         mu_visu_1 = (self.mu_min) * self.ones
-        mu_visu_2 = (0.75*self.mu_min + 0.25*self.mu_max) * self.ones
-        mu_visu_3 = 0.5*(self.mu_min + self.mu_max) * self.ones
-        mu_visu_4 = (0.25*self.mu_min + 0.75*self.mu_max) * self.ones
+        mu_visu_2 = (0.75 * self.mu_min + 0.25 * self.mu_max) * self.ones
+        mu_visu_3 = 0.5 * (self.mu_min + self.mu_max) * self.ones
+        mu_visu_4 = (0.25 * self.mu_min + 0.75 * self.mu_max) * self.ones
         mu_visu_5 = (self.mu_max) * self.ones
         u_pred_1 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_1)
         u_pred_2 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_2)
@@ -413,36 +412,39 @@ class PINNs:
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_1.detach().cpu(),
-            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_1[0].item()),
-            self.save_results,
+            save_plots,
+            self.fig_storage + "_1",
+            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_1[0].item()),
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_2.detach().cpu(),
-            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_2[0].item()),
-            self.save_results,
+            save_plots,
+            self.fig_storage + "_2",
+            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_2[0].item()),
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_3.detach().cpu(),
-            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_3[0].item()),
-            self.save_results,
+            save_plots,
+            self.fig_storage + "_3",
+            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_3[0].item()),
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_4.detach().cpu(),
-            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_4[0].item()),
-            self.save_results,
+            save_plots,
+            self.fig_storage + "_4",
+            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_4[0].item()),
         )
         makePlots.edp(
             xT.detach().cpu(),
             yT.detach().cpu(),
             u_pred_5.detach().cpu(),
-            "Solution de l'EDP tensorisée, $\mu=$"+str(mu_visu_5[0].item()),
-            self.save_results,
+            save_plots,
+            self.fig_storage + "_5",
+            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_5[0].item()),
         )
-
-

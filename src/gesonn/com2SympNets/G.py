@@ -8,7 +8,6 @@ Machine learning code for symplectic maps
 Inspired from a code given by V MICHEL DANSAC (INRIA)
 """
 
-
 # %%
 
 
@@ -156,6 +155,7 @@ class Symp_Net:
         self.file_name = (
             "./../../../outputs/SympNets/net/" + SympNetsDict["file_name"] + ".pth"
         )
+        self.fig_storage = "./../outputs/SympNets/img/" + SympNetsDict["file_name"]
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
@@ -315,6 +315,7 @@ class Symp_Net:
         n_collocation = kwargs.get("n_collocation", 10000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde ?
         try:
@@ -404,7 +405,7 @@ class Symp_Net:
             pass
 
         if plot_history:
-            self.plot_result()
+            self.plot_result(save_plots)
             hausdorff_error = self.get_hausdorff_error()
             print("Hausdorff error: ", hausdorff_error)
 
@@ -436,12 +437,14 @@ class Symp_Net:
         X_net = np.array(X_net)
         X_ex = np.array(X_ex)
 
-        return max(dist.directed_hausdorff(X_net, X_ex)[0], dist.directed_hausdorff(X_ex, X_net)[0])
+        return max(
+            dist.directed_hausdorff(X_net, X_ex)[0],
+            dist.directed_hausdorff(X_ex, X_net)[0],
+        )
 
+    def plot_result(self, save_plots):
 
-    def plot_result(self):
-
-        makePlots.loss(self.loss_history)
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_shape = 10_000
         self.make_collocation(n_shape)
@@ -451,6 +454,15 @@ class Symp_Net:
         )
         x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation)
 
-        makePlots.shape(x_net.detach().cpu(), y_net.detach().cpu())
-        makePlots.shape_error(x_net.detach().cpu(), y_net.detach().cpu(), x_ex.detach().cpu(), y_ex.detach().cpu(), title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}")
-
+        makePlots.shape(
+            x_net.detach().cpu(), y_net.detach().cpu(), save_plots, self.fig_storage
+        )
+        makePlots.shape_error(
+            x_net.detach().cpu(),
+            y_net.detach().cpu(),
+            x_ex.detach().cpu(),
+            y_ex.detach().cpu(),
+            save_plots,
+            self.fig_storage,
+            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}",
+        )

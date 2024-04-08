@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     for source_term in sourceList:
 
-        if source_term!=sourceList[0]:
+        if source_term != sourceList[0]:
             for simuDict in dictsList:
                 simuDict["file_name"] = simuDict["file_name"][:-11]
         for simuDict in dictsList:
