@@ -78,7 +78,7 @@ def main_poisson_test(testsDict, source_term):
         print("erreur L2 : ", errL2.item())
 
         # Affichage
-        fig_path = "./../outputs/PINNs/img/benchmark_" + simuDict["file_name"]
-        makePlots.edp(X_visu, Y_visu, Unet, True, fig_path + "_pinns", "PINNs")
-        makePlots.edp(X_visu, Y_visu, Ufem, True, fig_path + "_fem", "FEM")
-        makePlots.edp(X_visu, Y_visu, err, True, fig_path + "_err", "error")
+        fig_path = "./../outputs/PINNs/img/" + simuDict["file_name"]
+        makePlots.edp(X_visu, Y_visu, Unet, True, fig_path + "_PINNS", "PINNs")
+        makePlots.edp(X_visu, Y_visu, Ufem, True, fig_path + "_FEM", "FEM")
+        makePlots.edp(X_visu, Y_visu, err, True, fig_path + "_ERR", "error")
