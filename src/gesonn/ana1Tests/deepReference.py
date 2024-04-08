@@ -43,10 +43,10 @@ def main_reference_test(testsDict):
             network = geometry.Geo_Net(deepGeoDict=simuDict)
             if device.type == "cpu":
                 tps = network.train(
-                    epochs=10_000, n_collocation=10_000, plot_history=False
+                    epochs=10, n_collocation=10_000, plot_history=False
                 )
             else:
-                tps = network.train(epochs=25_000, n_collocation=100_000, plot_history=False)
+                tps = network.train(epochs=25_000, n_collocation=250_000, plot_history=False)
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = geometry.Geo_Net(deepGeoDict=simuDict)
@@ -112,6 +112,8 @@ def main_reference_test(testsDict):
             yT_net.detach().cpu(),
             x_fem,
             y_fem,
+            True,
+            "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
             title=f"Hausdorff error: {hausdorff_error:5.2e}"
         )
         makePlots.edp_shape_error(
@@ -120,5 +122,7 @@ def main_reference_test(testsDict):
             yT_map.detach().cpu(),
             x_fem,
             y_fem,
+            True,
+            "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
             title=f"Hausdorff error: {hausdorff_error:5.2e}"
         )

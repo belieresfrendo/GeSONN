@@ -20,7 +20,7 @@ def main_deep_circle_test(simuDict):
         network = geometry.Geo_Net(deepGeoDict=simuDict)
         if device.type == "cpu":
             network.train(
-                epochs=1_000, n_collocation=10_000, plot_history=False
+                epochs=10_000, n_collocation=10_000, plot_history=False
             )
         else:
             network.train(epochs=10_000, n_collocation=250_000, plot_history=False)
@@ -60,5 +60,7 @@ def main_deep_circle_test(simuDict):
         y_net.detach().cpu(),
         x_ex.detach().cpu(),
         y_ex.detach().cpu(),
-        title=f"Hausdorff error: {hausdorff_error:5.2e}"
+        True,
+        "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
+        title=f"Hausdorff distance: {hausdorff_error:5.2e}",
     )

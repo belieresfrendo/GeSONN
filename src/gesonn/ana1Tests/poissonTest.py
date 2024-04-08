@@ -44,11 +44,11 @@ def main_poisson_test(testsDict, source_term):
             network = poisson.PINNs(PINNsDict=simuDict)
             if device.type == "cpu":
                 tps = network.train(
-                    epochs=1_000, n_collocation=10_000, plot_history=False
+                    epochs=10_000, n_collocation=10_000, plot_history=False
                 )
             else:
                 tps = network.train(
-                    epochs=10, n_collocation=100_000, plot_history=False
+                    epochs=10_000, n_collocation=250_000, plot_history=False
                 )
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:

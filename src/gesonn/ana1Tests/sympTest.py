@@ -30,14 +30,14 @@ def main_symp_test(testsDict):
             network = G.Symp_Net(SympNetsDict=simuDict)
             if device.type == "cpu":
                 tps = network.train(
-                    epochs=1_000, n_collocation=10_000, plot_history=False
+                    epochs=10_000, n_collocation=10_000, plot_history=False
                 )
             else:
-                tps = network.train(epochs=10_000, n_collocation=100_000, plot_history=False)
+                tps = network.train(epochs=10_000, n_collocation=250_000, plot_history=False)
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = G.Symp_Net(SympNetsDict=simuDict)
 
-        network.plot_result()
+        network.plot_result(True)
         hausdorff_error = network.get_hausdorff_error()
         print("Hausdorff error: ", hausdorff_error)
