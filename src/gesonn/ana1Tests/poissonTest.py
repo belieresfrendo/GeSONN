@@ -48,7 +48,7 @@ def main_poisson_test(testsDict, source_term):
                 )
             else:
                 tps = network.train(
-                    epochs=10_000, n_collocation=100_000, plot_history=False
+                    epochs=10, n_collocation=100_000, plot_history=False
                 )
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
