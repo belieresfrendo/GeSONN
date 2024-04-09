@@ -542,16 +542,16 @@ class Geo_Net:
 
         if plot_history:
             if self.poisson_or_bernoulli=="poisson":
-                self.plot_result(save_plots)
+                self.plot_result_poisson(save_plots)
             if self.poisson_or_bernoulli == "bernoulli":
-                self.plot_result_bernoulli()
+                self.plot_result_bernoulli(save_plots)
         return tps2 - tps1
 
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, save_plots):
+    def plot_result_poisson(self, save_plots):
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
@@ -597,14 +597,10 @@ class Geo_Net:
         )
 
 
-    def plot_result_bernoulli(self, derivative=False, random=False):
+    def plot_result_bernoulli(self, save_plots):
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(2, 2, figsize=[12.8, 9.6])
-
-        ax[0, 0].plot(self.loss_history)
-        ax[0, 0].set_yscale("symlog", linthresh=1e-4)
-        ax[0, 0].set_title("loss history")
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 25_000
         self.make_collocation(n_visu)
@@ -628,34 +624,22 @@ class Geo_Net:
         xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
         xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
 
-        im = ax[0, 1].scatter(
-            xT,
-            yT,
-            s=1,
-            c=u_pred,
-            cmap="gist_ncar",
+        makePlots.edp(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            u_pred.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_pde",
+            title="EDP",
         )
-        fig.colorbar(im, ax=ax[0, 1])
-        ax[0, 1].set_title("$u_{pred}$")
-        ax[0, 1].set_aspect("equal")
-
-        im = ax[1,0].scatter(
-            x,
-            y,
-            s=1,
+        makePlots.shape(x, y, save_plots, self.fig_storage + "_collocation_points")
+        makePlots.edp(
+            xT_gamma.detach().cpu(),
+            yT_gamma.detach().cpu(),
+            dn_u_pred.detach().cpu(),
+            save_plots,
+            self.fig_storage + "_condition_optimalite",
+            title="$\partial_n u_{pred}$",
         )
-        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
-        ax[1,0].set_aspect("equal")
-
-        im = ax[1, 1].scatter(
-            xT_gamma,
-            yT_gamma,
-            s=1,
-            c=dn_u_pred.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("$\partial_n u_{pred}$")
-        ax[1, 1].set_aspect("equal")
 
         plt.show()
