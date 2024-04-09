@@ -7,7 +7,7 @@ import torch
 from gesonn.com3DeepShape import geometry
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py")
+print(f"torch loaded; device is {device}; script is runCom3DeepShapePoisson.py")
 
 if __name__ == "__main__":
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
         "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "default",
+        "file_name": "poisson_default",
         "to_be_trained": True,
         "source_term": "exp",
         "boundary_condition": "homogeneous_dirichlet",
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     epochs = 10
     n_collocation = 1000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 
@@ -56,6 +56,7 @@ if __name__ == "__main__":
 
         if device.type == "cpu":
             tps = network.train(
+                "poisson",
                 epochs=epochs,
                 n_collocation=n_collocation,
                 plot_history=True,
@@ -63,6 +64,7 @@ if __name__ == "__main__":
             )
         else:
             tps = network.train(
+                "poisson",
                 epochs=epochs,
                 n_collocation=n_collocation,
                 plot_history=True,

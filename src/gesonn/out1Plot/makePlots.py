@@ -14,7 +14,7 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
-def edp(x, y, u, save_plots, name, title=None, figsize=(2.5,5)):
+def edp(x, y, u, save_plots, name, title=None, figsize=(5,5)):
     fig, ax = plt.subplots(figsize=figsize)
     im = ax.scatter(
         x,

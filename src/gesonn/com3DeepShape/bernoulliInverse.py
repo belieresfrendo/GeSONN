@@ -124,8 +124,8 @@ class Bernoulli_Net:
 
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(
-            # nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
-            nn.DataParallel(G.Symp_Net_Forward(self.networks_size)).to(device)
+            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+            # nn.DataParallel(G.Symp_Net_Forward(self.networks_size)).to(device)
         )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
@@ -456,8 +456,8 @@ class Bernoulli_Net:
 
     def apply_symplecto(self, x, y):
         for i in range(self.nb_of_networks):
-            x, y = x + self.up_nets[i](y), y
-            x, y = x, y + self.down_nets[i](x)
+            x = x + self.up_nets[i](y)
+            y = y + self.down_nets[i](x)
         return x, y
 
     def apply_inverse_symplecto(self, x, y):

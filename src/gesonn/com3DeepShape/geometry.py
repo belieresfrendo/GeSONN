@@ -117,6 +117,10 @@ class Geo_Net:
         # Boundary condition of the Poisson problem
         self.boundary_condition = deepGeoDict["boundary_condition"]
 
+        # Parameters of the compact set K
+        self.a = 0.6
+        self.b = self.rho_min**2 / self.a
+
         self.create_networks()
         self.load(self.file_name)
 
@@ -330,19 +334,43 @@ class Geo_Net:
     def apply_symplecto(self, x, y):
         x, y = x, y
         for i in range(self.nb_of_networks):
-            x, y = x + self.up_nets[i](y), y
-            x, y = x, y + self.down_nets[i](x)
+            x = x + self.up_nets[i](y)
+            y = y + self.down_nets[i](x)
         return x, y
 
-    def get_u(self, x, y):
-        return bc.apply_BC(
-            self.u_net(*self.apply_symplecto(x, y)),
-            x,
-            y,
-            self.rho_min,
-            self.rho_max,
-            name=self.boundary_condition,
+    def apply_inverse_symplecto(self, x, y):
+        for i in range(self.nb_of_networks):
+            y = y - self.down_nets[self.nb_of_networks - 1 - i](x)
+            x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
+        return x, y
+
+    def apply_rejet_kompact(self, x, y):
+        xT, yT = self.apply_symplecto(x, y)
+        condition = (xT / self.a) ** 2 + (yT / self.b) ** 2 >= 1
+        xT, yT = (
+            xT[condition][:, None],
+            yT[condition][:, None],
         )
+        return self.apply_inverse_symplecto(xT, yT)
+
+    def get_u(self, x, y):
+        if self.poisson_or_bernoulli == "poisson":
+            return bc.apply_BC(
+                self.u_net(*self.apply_symplecto(x, y)),
+                x,
+                y,
+                self.rho_min,
+                self.rho_max,
+                name=self.boundary_condition,
+            )
+        elif self.poisson_or_bernoulli == "bernoulli":
+            rho_2 = x**2 + y**2
+            xT, yT = self.apply_symplecto(x, y)
+            rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+            bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
+            bc_add = (self.rho_max**2 - rho_2) / (rhoT_2 - rho_2)
+            return self.u_net(xT, yT) * bc_mul + bc_add
+        raise NameError("Attention poisson_or_bernoulli")
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -354,15 +382,30 @@ class Geo_Net:
     def make_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
-        rho_collocation = torch.sqrt(
-            self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
-        )
+        if self.poisson_or_bernoulli == "poisson":
+            rho_collocation = torch.sqrt(
+                self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
+            )
+        if self.poisson_or_bernoulli == "bernoulli":
+            rho_collocation = torch.sqrt(
+                self.random(0, self.rho_max**2, shape, requires_grad=True)
+            )
+
         self.theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
 
         self.x_collocation = rho_collocation * torch.cos(self.theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(self.theta_collocation)
+
+        if self.poisson_or_bernoulli == "bernoulli":
+            self.x_gamma_collocation = self.rho_max * torch.cos(self.theta_collocation)
+            self.y_gamma_collocation = self.rho_max * torch.sin(self.theta_collocation)
+            self.x_collocation, self.y_collocation = (
+                self.apply_rejet_kompact(
+                    self.x_collocation, self.y_collocation
+                )
+            )
 
     def get_mes_border(self):
         n = 10_000
@@ -379,7 +422,10 @@ class Geo_Net:
 
         return lenghts.sum()
 
-    def train(self, **kwargs):
+    def train(self, poisson_or_bernoulli, **kwargs):
+
+        self.poisson_or_bernoulli = poisson_or_bernoulli
+
         # nombre de pas de descente
         epochs = kwargs.get("epochs", 500)
         # nombre de pts tirés pour monte-carlo
@@ -397,6 +443,7 @@ class Geo_Net:
         # boucle principale de la descnet ede gradient
         tps1 = time.time()
         for epoch in range(epochs):
+
             # mise à 0 du gradient
             for i in range(self.nb_of_networks):
                 self.up_optimizers[i].zero_grad()
@@ -409,17 +456,27 @@ class Geo_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
-                grad_u_2 = self.left_hand_term(
-                    self.x_collocation,
-                    self.y_collocation,
-                )
-                fu = self.right_hand_term(
-                    self.x_collocation,
-                    self.y_collocation,
-                )
-                dirichlet_loss = 0.5 * grad_u_2 - fu
 
-                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
+
+                if poisson_or_bernoulli == "poisson":
+                    grad_u_2 = self.left_hand_term(
+                        self.x_collocation,
+                        self.y_collocation,
+                    )
+                    fu = self.right_hand_term(
+                        self.x_collocation,
+                        self.y_collocation,
+                    )
+                    dirichlet_loss = 0.5 * grad_u_2 - fu
+                    self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
+
+                elif poisson_or_bernoulli == "bernoulli":
+                    n_pts = self.x_collocation.size()[0]
+                    grad_u_2 = (
+                        self.left_hand_term(self.x_collocation, self.y_collocation)
+                    )
+                    dirichlet_loss = 0.5 * grad_u_2
+                    self.loss = dirichlet_loss.sum() / n_pts * self.Vol
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
@@ -484,8 +541,10 @@ class Geo_Net:
             pass
 
         if plot_history:
-            self.plot_result(save_plots)
-
+            if self.poisson_or_bernoulli=="poisson":
+                self.plot_result(save_plots)
+            if self.poisson_or_bernoulli == "bernoulli":
+                self.plot_result_bernoulli()
         return tps2 - tps1
 
     @staticmethod
@@ -536,3 +595,67 @@ class Geo_Net:
             self.fig_storage + "_pde",
             title="EDP",
         )
+
+
+    def plot_result_bernoulli(self, derivative=False, random=False):
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(2, 2, figsize=[12.8, 9.6])
+
+        ax[0, 0].plot(self.loss_history)
+        ax[0, 0].set_yscale("symlog", linthresh=1e-4)
+        ax[0, 0].set_title("loss history")
+
+        n_visu = 25_000
+        self.make_collocation(n_visu)
+
+        xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
+        xT_gamma, yT_gamma = self.apply_symplecto(
+            self.x_gamma_collocation, self.y_gamma_collocation
+        )
+
+        xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
+        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
+        dn_u_pred, _, _ = self.get_dn_u(
+            self.x_gamma_collocation, self.y_gamma_collocation
+        )
+
+        x, y = (
+            self.x_collocation.detach().cpu(),
+            self.y_collocation.detach().cpu(),
+        )
+        xT, yT = xT.detach().cpu(), yT.detach().cpu()
+        xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+        xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
+
+        im = ax[0, 1].scatter(
+            xT,
+            yT,
+            s=1,
+            c=u_pred,
+            cmap="gist_ncar",
+        )
+        fig.colorbar(im, ax=ax[0, 1])
+        ax[0, 1].set_title("$u_{pred}$")
+        ax[0, 1].set_aspect("equal")
+
+        im = ax[1,0].scatter(
+            x,
+            y,
+            s=1,
+        )
+        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
+        ax[1,0].set_aspect("equal")
+
+        im = ax[1, 1].scatter(
+            xT_gamma,
+            yT_gamma,
+            s=1,
+            c=dn_u_pred.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        fig.colorbar(im, ax=ax[1, 1])
+        ax[1, 1].set_title("$\partial_n u_{pred}$")
+        ax[1, 1].set_aspect("equal")
+
+        plt.show()
