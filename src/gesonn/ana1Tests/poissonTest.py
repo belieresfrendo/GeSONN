@@ -79,6 +79,7 @@ def main_poisson_test(testsDict, source_term):
 
         # Affichage
         fig_path = "./../outputs/PINNs/img/" + simuDict["file_name"]
+        makePlots.loss(network.loss_history, True, fig_path)
         makePlots.edp(X_visu, Y_visu, Unet, True, fig_path + "_PINNS", "PINNs")
         makePlots.edp(X_visu, Y_visu, Ufem, True, fig_path + "_FEM", "FEM")
-        makePlots.edp(X_visu, Y_visu, err, True, fig_path + "_ERR", "error")
+        makePlots.edp(X_visu, Y_visu, err, True, fig_path + "_ERR", "Error")

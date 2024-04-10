@@ -6,15 +6,16 @@ rc("text", usetex=True)
 
 
 def loss(loss_history, save_plots, name):
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(7.5,7.5))
     ax.plot(loss_history)
+    ax.set_title("Loss function")
     ax.set_yscale("symlog", linthresh=1e-4)
     if save_plots:
         plt.savefig(name + "_loss.pdf")
     plt.show()
 
 
-def edp(x, y, u, save_plots, name, title=None, figsize=(5,5)):
+def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,7.5)):
     fig, ax = plt.subplots(figsize=figsize)
     im = ax.scatter(
         x,
@@ -32,7 +33,7 @@ def edp(x, y, u, save_plots, name, title=None, figsize=(5,5)):
     plt.show()
 
 def shape(x, y, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(5,5))
+    _, ax = plt.subplots(figsize=(7.5,7.5))
     ax.scatter(
         x,
         y,
@@ -47,7 +48,7 @@ def shape(x, y, save_plots, name, title=None):
     plt.show()
 
 def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(5,5))
+    _, ax = plt.subplots(figsize=(7.5,7.5))
     ax.scatter(x1, y1, s=1)
     ax.scatter(x2, y2, s=1)
     ax.scatter(x3, y3, s=1)
@@ -63,7 +64,7 @@ def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=
 
 
 def shape_error(x, y, u, v, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(5,5))
+    _, ax = plt.subplots(figsize=(7.5,7.5))
     ax.scatter(
         u,
         v,
@@ -87,7 +88,7 @@ def shape_error(x, y, u, v, save_plots, name, title=None):
     plt.show()
 
 def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
-    fig, ax = plt.subplots(figsize=(5,5))
+    fig, ax = plt.subplots(figsize=(7.5,7.5))
     im = ax.scatter(
         x,
         y,

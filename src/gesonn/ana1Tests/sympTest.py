@@ -40,4 +40,4 @@ def main_symp_test(testsDict):
 
         network.plot_result(True)
         hausdorff_error = network.get_hausdorff_error()
-        print("Hausdorff error: ", hausdorff_error)
+        print("Hausdorff distance: ", hausdorff_error)
