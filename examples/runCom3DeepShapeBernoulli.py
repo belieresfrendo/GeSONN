@@ -10,7 +10,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is runCom3DeepShapeBernoulli.py")
 
 if __name__ == "__main__":
-
     # ==============================================================
     # Parameters to be modified freely by the user
     # ==============================================================
@@ -21,19 +20,22 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 10, 1],
-        "nb_of_networks": 2,
-        "networks_size": 5,
+        "layer_sizes": [2, 10, 20, 20, 10, 1],
+        # "nb_of_networks": 2,
+        # "networks_size": 5,
+        "nb_of_networks": 4,
+        "networks_size": 10,
         "rho_min": 0.5,
         "rho_max": 1,
+        "a": 0.7,
         "file_name": "bernoulli_default",
         "to_be_trained": True,
     }
 
-    epochs = 20_000
-    n_collocation = 1_000
+    epochs = 1000
+    n_collocation = 5_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
@@ -50,7 +52,12 @@ if __name__ == "__main__":
             except FileNotFoundError:
                 pass
 
-        network = geometry.Geo_Net(deepGeoDict=deepGeoDict)
+        network = geometry.Geo_Net(
+            deepGeoDict=deepGeoDict,
+            switch_to_LBFGS=False,
+            # switch_to_LBFGS=True,
+            switch_to_LBFGS_at=1e5,
+        )
 
         if device.type == "cpu":
             tps = network.train(

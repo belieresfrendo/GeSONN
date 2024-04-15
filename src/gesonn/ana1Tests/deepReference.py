@@ -1,23 +1,14 @@
 # imports
 import os
-import torch
-import pandas as pd
 
-# local imports
-from gesonn.out1Plot import makePlots
+import pandas as pd
+import torch
 from gesonn.ana1Tests import optimalShapes
+from gesonn.com3DeepShape import geometry
+from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
-# local imports
-from gesonn.com3DeepShape import geometry
 
 
 def main_reference_test(testsDict):
@@ -42,21 +33,21 @@ def main_reference_test(testsDict):
             print(f"Empty file for simulation {simu_name}. Computation launched")
             network = geometry.Geo_Net(deepGeoDict=simuDict)
             if device.type == "cpu":
-                tps = network.train(
-                    epochs=10, n_collocation=10_000, plot_history=False
-                )
+                tps = network.train(epochs=10, n_collocation=10_000, plot_history=False)
             else:
-                tps = network.train(epochs=25_000, n_collocation=250_000, plot_history=False)
+                tps = network.train(
+                    epochs=25_000, n_collocation=250_000, plot_history=False
+                )
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = geometry.Geo_Net(deepGeoDict=simuDict)
 
         n_pts = 10_000
-        shape = (n_pts,1)
+        shape = (n_pts, 1)
         network.make_collocation(n_pts)
 
-        import scipy.spatial.distance as dist
         import numpy as np
+        import scipy.spatial.distance as dist
 
         rho = network.rho_max
         theta = network.random(
@@ -72,9 +63,13 @@ def main_reference_test(testsDict):
             network.x_collocation,
             network.y_collocation,
         )
-        if simuDict["source_term"]=="one":
-            xT_net, yT_net = optimalShapes.translate_to_zero(xT_net, yT_net, n_pts, network.Vol)
-            xT_map, yT_map = optimalShapes.translate_to_zero(xT_map, yT_map, 50_000, network.Vol)
+        if simuDict["source_term"] == "one":
+            xT_net, yT_net = optimalShapes.translate_to_zero(
+                xT_net, yT_net, n_pts, network.Vol
+            )
+            xT_map, yT_map = optimalShapes.translate_to_zero(
+                xT_map, yT_map, 50_000, network.Vol
+            )
         XT_net = []
         X_fem = []
         x_fem, y_fem = [], []
@@ -90,22 +85,23 @@ def main_reference_test(testsDict):
                 X_fem.append((x, y))
                 x_fem.append(x)
                 y_fem.append(y)
-            if border_bool == 1 and A_fem[i] == 1 and A_fem[i+1] == 0:
+            if border_bool == 1 and A_fem[i] == 1 and A_fem[i + 1] == 0:
                 x, y = X[i], Y[i]
                 X_fem.append((x, y))
                 x_fem.append(x)
                 y_fem.append(y)
             cpt = cpt + 1
-            if cpt==step:
+            if cpt == step:
                 cpt = 0
                 border_bool = 0
-
-
 
         XT_net = np.array(XT_net)
         X_fem = np.array(X_fem)
 
-        hausdorff_error = max(dist.directed_hausdorff(XT_net, X_fem)[0], dist.directed_hausdorff(X_fem, XT_net)[0])
+        hausdorff_error = max(
+            dist.directed_hausdorff(XT_net, X_fem)[0],
+            dist.directed_hausdorff(X_fem, XT_net)[0],
+        )
         print("Dictance de Hausdorff:", hausdorff_error)
         makePlots.shape_error(
             xT_net.detach().cpu(),
@@ -114,7 +110,7 @@ def main_reference_test(testsDict):
             y_fem,
             True,
             "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
-            title=f"Hausdorff error: {hausdorff_error:5.2e}"
+            title=f"Hausdorff error: {hausdorff_error:5.2e}",
         )
         makePlots.edp_shape_error(
             u_pred.detach().cpu(),
@@ -124,5 +120,5 @@ def main_reference_test(testsDict):
             y_fem,
             True,
             "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
-            title=f"Hausdorff error: {hausdorff_error:5.2e}"
+            title=f"Hausdorff error: {hausdorff_error:5.2e}",
         )

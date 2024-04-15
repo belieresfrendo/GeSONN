@@ -23,20 +23,12 @@ import time
 
 import torch
 import torch.nn as nn
-from gesonn.com1PINNs import boundary_conditions as bc
 
 # local imports
+from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import poissonParam, sourceTerms
 from gesonn.com2SympNets import GParam
 from gesonn.out1Plot import makePlots
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is deepGeometry.py")
@@ -67,15 +59,17 @@ class Geo_Net:
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
 
         if deepGeoDict.get("pde_learning_rate") == None:
-            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pde_learning_rate"
+            ]
         if deepGeoDict.get("sympnet_learning_rate") == None:
-            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_learning_rate"
+            ]
         if deepGeoDict.get("layer_sizes") == None:
             deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
         if deepGeoDict.get("nb_of_networks") == None:
-            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
-                "nb_of_networks"
-            ]
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
         if deepGeoDict.get("networks_size") == None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
         if deepGeoDict.get("rho_min") == None:
@@ -97,10 +91,11 @@ class Geo_Net:
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
 
-
         # Storage file
         self.file_name = (
-            "./../../../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
+            "./../../../outputs/deepShape/net/param_"
+            + deepGeoDict["file_name"]
+            + ".pth"
         )
         self.fig_storage = (
             "./../outputs/deepShape/img/param_" + deepGeoDict["file_name"]
@@ -358,7 +353,7 @@ class Geo_Net:
             y,
             self.rho_min,
             self.rho_max,
-            name =self.boundary_condition,
+            name=self.boundary_condition,
         )
 
     @staticmethod
@@ -533,7 +528,6 @@ class Geo_Net:
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 50_000
@@ -542,28 +536,36 @@ class Geo_Net:
         y_border = self.rho_max * torch.sin(self.theta_collocation)
         self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
         w1 = torch.rand(1, device=device)
-        mu_visu_1 = (w1*self.mu_min + (1-w1)*self.mu_max) * self.ones
+        mu_visu_1 = (w1 * self.mu_min + (1 - w1) * self.mu_max) * self.ones
         w2 = torch.rand(1, device=device)
-        mu_visu_2 = (w2*self.mu_min + (1-w2)*self.mu_max) * self.ones
+        mu_visu_2 = (w2 * self.mu_min + (1 - w2) * self.mu_max) * self.ones
         w3 = torch.rand(1, device=device)
-        mu_visu_3 = (w3*self.mu_min + (1-w3)*self.mu_max) * self.ones
+        mu_visu_3 = (w3 * self.mu_min + (1 - w3) * self.mu_max) * self.ones
         w4 = torch.rand(1, device=device)
-        mu_visu_4 = (w4*self.mu_min + (1-w4)*self.mu_max) * self.ones
+        mu_visu_4 = (w4 * self.mu_min + (1 - w4) * self.mu_max) * self.ones
         w5 = torch.rand(1, device=device)
-        mu_visu_5 = (w5*self.mu_min + (1-w5)*self.mu_max) * self.ones
+        mu_visu_5 = (w5 * self.mu_min + (1 - w5) * self.mu_max) * self.ones
 
-
-        xT_1, yT_1 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1)
+        xT_1, yT_1 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_1
+        )
         u_pred_1 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_1)
-        xT_2, yT_2 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2)
+        xT_2, yT_2 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_2
+        )
         u_pred_2 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_2)
-        xT_3, yT_3 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3)
+        xT_3, yT_3 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_3
+        )
         u_pred_3 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_3)
-        xT_4, yT_4 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4)
+        xT_4, yT_4 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_4
+        )
         u_pred_4 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_4)
-        xT_5, yT_5 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5)
+        xT_5, yT_5 = self.apply_symplecto(
+            self.x_collocation, self.y_collocation, mu_visu_5
+        )
         u_pred_5 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_5)
-
 
         xT_border_1, yT_border_1 = self.apply_symplecto(x_border, y_border, mu_visu_1)
         xT_border_2, yT_border_2 = self.apply_symplecto(x_border, y_border, mu_visu_2)
@@ -571,7 +573,6 @@ class Geo_Net:
         xT_border_4, yT_border_4 = self.apply_symplecto(x_border, y_border, mu_visu_4)
         xT_border_5, yT_border_5 = self.apply_symplecto(x_border, y_border, mu_visu_5)
         # dn_u, _, _ = self.get_dn_u(x_border, y_border)
-
 
         # makePlots.edp(
         #     xT_border.detach().cpu(),
@@ -583,10 +584,14 @@ class Geo_Net:
             xT_1.detach().cpu(),
             yT_1.detach().cpu(),
             sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1),
+                *self.apply_symplecto(
+                    self.x_collocation, self.y_collocation, mu_visu_1
+                ),
                 mu=mu_visu_1,
-                name=self.source_term
-            ).detach().cpu(),
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source_1",
             title="terme source",
@@ -603,10 +608,14 @@ class Geo_Net:
             xT_2.detach().cpu(),
             yT_2.detach().cpu(),
             sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2),
+                *self.apply_symplecto(
+                    self.x_collocation, self.y_collocation, mu_visu_2
+                ),
                 mu=mu_visu_2,
-                name=self.source_term
-            ).detach().cpu(),
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source_2",
             title="terme source",
@@ -623,10 +632,14 @@ class Geo_Net:
             xT_3.detach().cpu(),
             yT_3.detach().cpu(),
             sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3),
+                *self.apply_symplecto(
+                    self.x_collocation, self.y_collocation, mu_visu_3
+                ),
                 mu=mu_visu_3,
-                name=self.source_term
-            ).detach().cpu(),
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source_3",
             title="terme source",
@@ -643,10 +656,14 @@ class Geo_Net:
             xT_4.detach().cpu(),
             yT_4.detach().cpu(),
             sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4),
+                *self.apply_symplecto(
+                    self.x_collocation, self.y_collocation, mu_visu_4
+                ),
                 mu=mu_visu_4,
-                name=self.source_term
-            ).detach().cpu(),
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source_4",
             title="terme source",
@@ -663,10 +680,14 @@ class Geo_Net:
             xT_5.detach().cpu(),
             yT_5.detach().cpu(),
             sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5),
+                *self.apply_symplecto(
+                    self.x_collocation, self.y_collocation, mu_visu_5
+                ),
                 mu=mu_visu_5,
-                name=self.source_term
-            ).detach().cpu(),
+                name=self.source_term,
+            )
+            .detach()
+            .cpu(),
             save_plots,
             self.fig_storage + "_source_5",
             title="terme source",
@@ -681,11 +702,16 @@ class Geo_Net:
         )
 
         makePlots.param_shape(
-            xT_border_1.detach().cpu(), yT_border_1.detach().cpu(),
-            xT_border_2.detach().cpu(), yT_border_2.detach().cpu(),
-            xT_border_3.detach().cpu(), yT_border_3.detach().cpu(),
-            xT_border_4.detach().cpu(), yT_border_4.detach().cpu(),
-            xT_border_5.detach().cpu(), yT_border_5.detach().cpu(),
+            xT_border_1.detach().cpu(),
+            yT_border_1.detach().cpu(),
+            xT_border_2.detach().cpu(),
+            yT_border_2.detach().cpu(),
+            xT_border_3.detach().cpu(),
+            yT_border_3.detach().cpu(),
+            xT_border_4.detach().cpu(),
+            yT_border_4.detach().cpu(),
+            xT_border_5.detach().cpu(),
+            yT_border_5.detach().cpu(),
             save_plots,
             self.fig_storage,
             title="superposition of learned shapes",

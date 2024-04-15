@@ -18,24 +18,15 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
-
-# local imports
-from gesonn.out1Plot import makePlots
 from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import metricTensors
-from gesonn.com1PINNs import sourceTerms
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
+from gesonn.com1PINNs import metricTensors, sourceTerms
+from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is poisson.py")

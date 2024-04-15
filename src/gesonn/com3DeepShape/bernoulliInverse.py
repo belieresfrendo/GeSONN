@@ -25,15 +25,6 @@ import torch.nn as nn
 # local imports
 from gesonn.com1PINNs import poisson
 from gesonn.com2SympNets import G
-from gesonn.out1Plot import makePlots
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is bernoulli.py")
@@ -61,34 +52,33 @@ class Bernoulli_Net:
 
     # constructeur
     def __init__(self, deepDict):
-
-        if deepDict.get("pde_learning_rate") == None:
+        if deepDict.get("pde_learning_rate") is None:
             deepDict["pde_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT[
                 "pde_learning_rate"
             ]
-        if deepDict.get("sympnet_learning_rate") == None:
+        if deepDict.get("sympnet_learning_rate") is None:
             deepDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_BERN_DICT[
                 "sympnet_learning_rate"
             ]
-        if deepDict.get("layer_sizes") == None:
+        if deepDict.get("layer_sizes") is None:
             deepDict["layer_sizes"] = self.DEFAULT_DEEP_BERN_DICT["layer_sizes"]
-        if deepDict.get("nb_of_networks") == None:
+        if deepDict.get("nb_of_networks") is None:
             deepDict["nb_of_networks"] = self.DEFAULT_DEEP_BERN_DICT["nb_of_networks"]
-        if deepDict.get("networks_size") == None:
+        if deepDict.get("networks_size") is None:
             deepDict["networks_size"] = self.DEFAULT_DEEP_BERN_DICT["networks_size"]
-        if deepDict.get("rho_min") == None:
+        if deepDict.get("rho_min") is None:
             deepDict["rho_min"] = self.DEFAULT_DEEP_BERN_DICT["rho_min"]
-        if deepDict.get("rho_max") == None:
+        if deepDict.get("rho_max") is None:
             deepDict["rho_max"] = self.DEFAULT_DEEP_BERN_DICT["rho_max"]
-        if deepDict.get("file_name") == None:
+        if deepDict.get("file_name") is None:
             deepDict["file_name"] = self.DEFAULT_DEEP_BERN_DICT["file_name"]
-        if deepDict.get("source_term") == None:
+        if deepDict.get("source_term") is None:
             deepDict["source_term"] = self.DEFAULT_DEEP_BERN_DICT["source_term"]
-        if deepDict.get("boundary_condition") == None:
+        if deepDict.get("boundary_condition") is None:
             deepDict["boundary_condition"] = self.DEFAULT_DEEP_BERN_DICT[
                 "boundary_condition"
             ]
-        if deepDict.get("to_be_trained") == None:
+        if deepDict.get("to_be_trained") is None:
             deepDict["to_be_trained"] = self.DEFAULT_DEEP_BERN_DICT["to_be_trained"]
 
         # Storage file
@@ -506,10 +496,8 @@ class Bernoulli_Net:
         self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
         self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
 
-        self.x_collocation, self.y_collocation = (
-            self.apply_rejet_kompact(
-                self.x_collocation, self.y_collocation
-            )
+        self.x_collocation, self.y_collocation = self.apply_rejet_kompact(
+            self.x_collocation, self.y_collocation
         )
 
     def get_mes_border(self):
@@ -554,9 +542,7 @@ class Bernoulli_Net:
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
                 n_pts = self.x_collocation.size()[0]
-                grad_u_2 = (
-                    self.left_hand_term(self.x_collocation, self.y_collocation)
-                )
+                grad_u_2 = self.left_hand_term(self.x_collocation, self.y_collocation)
 
                 dirichlet_loss = 0.5 * grad_u_2
 
@@ -677,13 +663,13 @@ class Bernoulli_Net:
         ax[0, 1].set_title("$u_{pred}$")
         ax[0, 1].set_aspect("equal")
 
-        im = ax[1,0].scatter(
+        im = ax[1, 0].scatter(
             x,
             y,
             s=1,
         )
-        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
-        ax[1,0].set_aspect("equal")
+        ax[1, 0].set_title("$C$ privé de $T^{-1}E$")
+        ax[1, 0].set_aspect("equal")
 
         im = ax[1, 1].scatter(
             xT_gamma,

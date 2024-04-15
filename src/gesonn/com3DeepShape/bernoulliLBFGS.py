@@ -16,25 +16,15 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
+
+import pandas as pd
 import torch
 import torch.nn as nn
-import pandas as pd
-import math
-
-# local imports
 from soviets.com1PINNs import poisson
 from soviets.com2SympNets import G
 from soviets.out1Plot import colormaps
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is bernoulli.py")
@@ -49,8 +39,9 @@ class Geo_Net:
     # constructeur
     def __init__(self, deepGeoDict, **kwargs):
         self.rho_min, self.rho_max = deepGeoDict["rho_min"], deepGeoDict["rho_max"]
-        self.theta_min, self.theta_max = kwargs.get("theta_min", 0), kwargs.get(
-            "theta_max", 2 * torch.pi
+        self.theta_min, self.theta_max = (
+            kwargs.get("theta_min", 0),
+            kwargs.get("theta_max", 2 * torch.pi),
         )
         self.Vol = torch.math.pi * (self.rho_max**2 - self.rho_min**2)
 
@@ -121,18 +112,22 @@ class Geo_Net:
         self.LBFGS_up_optimizers = []
         self.LBFGS_down_optimizers = []
         for i in range(self.nb_of_networks):
-            self.LBFGS_up_optimizers.append(torch.optim.LBFGS(
-                self.up_nets[i].parameters(),
-                history_size=self.LBFGS_history_size,
-                max_iter=self.LBFGS_max_iter,
-                line_search_fn="strong_wolfe",
-            ))
-            self.LBFGS_down_optimizers.append(torch.optim.LBFGS(
-                self.down_nets[i].parameters(),
-                history_size=self.LBFGS_history_size,
-                max_iter=self.LBFGS_max_iter,
-                line_search_fn="strong_wolfe",
-            ))
+            self.LBFGS_up_optimizers.append(
+                torch.optim.LBFGS(
+                    self.up_nets[i].parameters(),
+                    history_size=self.LBFGS_history_size,
+                    max_iter=self.LBFGS_max_iter,
+                    line_search_fn="strong_wolfe",
+                )
+            )
+            self.LBFGS_down_optimizers.append(
+                torch.optim.LBFGS(
+                    self.down_nets[i].parameters(),
+                    history_size=self.LBFGS_history_size,
+                    max_iter=self.LBFGS_max_iter,
+                    line_search_fn="strong_wolfe",
+                )
+            )
 
     def load_sympnet_layer(
         self, nets, optimizers, checkpoint_nets, checkpoint_optimizers, checkpoint
@@ -184,13 +179,17 @@ class Geo_Net:
 
                 optimizers_state_dicts = checkpoint["LBFGS_down_optimizers_state_dict"]
                 i = 0
-                for _, state_dict in zip(self.LBFGS_down_optimizers[i], optimizers_state_dicts):
+                for _, state_dict in zip(
+                    self.LBFGS_down_optimizers[i], optimizers_state_dicts
+                ):
                     self.LBFGS_down_optimizers[i].load_state_dict(state_dict)
                     i += 1
 
                 optimizers_state_dicts = checkpoint["LBFGS_up_optimizers_state_dict"]
                 i = 0
-                for _, state_dict in zip(self.LBFGS_up_optimizers[i], optimizers_state_dicts):
+                for _, state_dict in zip(
+                    self.LBFGS_up_optimizers[i], optimizers_state_dicts
+                ):
                     self.LBFGS_up_optimizers[i].load_state_dict(state_dict)
                     i += 1
 
@@ -490,7 +489,7 @@ class Geo_Net:
             x_net, y_net = x_net + self.up_nets[i](y_net), y_net
             x_net, y_net = x_net, y_net + self.down_nets[i](x_net)
         return x_net, y_net
-    
+
     def network_BC_mul(self, x, y):
         rho_2 = x**2 + y**2
         bc_mul = (rho_2 - self.rho_max**2) * (self.rho_min**2 - rho_2)
@@ -609,7 +608,7 @@ class Geo_Net:
 
                     self.loss.backward(retain_graph=True)
                     return self.loss
-                
+
             if LBFGS_activated:
                 self.LBFGS_u_optimizer.step(closure)
                 for i in range(self.nb_of_networks):
@@ -623,7 +622,6 @@ class Geo_Net:
                     self.down_optimizers[i].step()
 
             self.loss_history.append(self.loss.item())
-
 
             if epoch == 0:
                 initial_loss = self.loss.item()
@@ -646,7 +644,6 @@ class Geo_Net:
                         or epoch > self.force_switch_to_LBFGS_after_n_epochs
                     ):
                         self.create_LBFGS_optimizers()
-
 
             if epoch % 500 == 0:
                 print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -711,7 +708,6 @@ class Geo_Net:
         if plot_history:
             self.plot_result(epoch)
 
-
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
@@ -744,11 +740,7 @@ class Geo_Net:
         )
 
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        u_pred = (
-            self.get_u(self.x_collocation, self.y_collocation)
-            .detach()
-            .cpu()
-        )
+        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
         dn_u, nx, ny = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
 
         xT = xT.detach().cpu()
@@ -779,7 +771,7 @@ class Geo_Net:
         ax[1, 0].legend()
         ax[1, 0].set_title("forme optimale")
         ax[1, 0].set_aspect("equal")
-#
+        #
         # A_grad_u_grad_u = self.left_hand_term(
         #     self.x_collocation, self.y_collocation
         # )
@@ -860,12 +852,10 @@ class Geo_Net:
 
         plt.show()
 
-
     def make_movie(self, epoch):
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(figsize=[20, 15])
-
 
         n_visu = 1000
         self.make_collocation(n_visu)
@@ -877,7 +867,7 @@ class Geo_Net:
             self.x_collocation_min, self.y_collocation_min
         )
         x_min_goal = self.a * self.x_collocation_min
-        y_min_goal = 1/self.a * self.y_collocation_min
+        y_min_goal = 1 / self.a * self.y_collocation_min
 
         dn_u, _, _ = self.get_dn_u(self.x_collocation_max, self.y_collocation_max)
 
@@ -887,7 +877,7 @@ class Geo_Net:
             s=10,
             c=dn_u.detach().cpu(),
             cmap=colormaps.make_colormap(),
-            label="$|\partial_n u|$ sur la surface libre"
+            label="$|\partial_n u|$ sur la surface libre",
         )
 
         ax.scatter(
@@ -896,18 +886,18 @@ class Geo_Net:
             marker="^",
             s=10,
             color="black",
-            label="bord exact"
+            label="bord exact",
         )
         ax.scatter(
             xT_min.detach().cpu(),
             yT_min.detach().cpu(),
             s=5,
             color="red",
-            label="bord pénalisé"
+            label="bord pénalisé",
         )
         fig.colorbar(im, ax=ax)
         ax.legend()
         ax.set_aspect("equal")
         plt.title("epoch :" + str(epoch))
 
-        plt.savefig("../data/deepShape/img/" + str(epoch) + ".png")#, dpi=1200)
+        plt.savefig("../data/deepShape/img/" + str(epoch) + ".png")  # , dpi=1200)

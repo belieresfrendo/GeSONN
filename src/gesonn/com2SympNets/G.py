@@ -22,17 +22,8 @@ import time
 
 import torch
 import torch.nn as nn
-
-# local imports
 from gesonn.com1PINNs import metricTensors
 from gesonn.out1Plot import makePlots
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is G.py")
@@ -416,7 +407,6 @@ class Symp_Net:
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def get_hausdorff_error(self, n_pts=10_000):
-
         import numpy as np
         import scipy.spatial.distance as dist
 
@@ -443,7 +433,6 @@ class Symp_Net:
         )
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_shape = 10_000

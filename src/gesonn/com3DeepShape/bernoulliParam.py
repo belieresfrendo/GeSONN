@@ -16,25 +16,17 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
+
+import pandas as pd
 import torch
 import torch.nn as nn
-import pandas as pd
-import math
 
 # local imports
 from soviets.com1PINNs import poissonParam
 from soviets.com2SympNets import GParam
 from soviets.out1Plot import colormaps
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is bernoulli.py")
@@ -49,8 +41,9 @@ class Geo_Net:
     # constructeur
     def __init__(self, deepGeoDict, **kwargs):
         self.rho_min, self.rho_max = deepGeoDict["rho_min"], deepGeoDict["rho_max"]
-        self.theta_min, self.theta_max = kwargs.get("theta_min", 0), kwargs.get(
-            "theta_max", 2 * torch.pi
+        self.theta_min, self.theta_max = (
+            kwargs.get("theta_min", 0),
+            kwargs.get("theta_max", 2 * torch.pi),
         )
         self.mu_min, self.mu_max = kwargs.get("mu_min", 0.5), kwargs.get("mu_max", 2)
 
@@ -159,8 +152,6 @@ class Geo_Net:
             "rho_max": self.rho_max,
             "theta_min": self.theta_min,
             "theta_max": self.theta_max,
-            "rho_min": self.rho_min,
-            "rho_max": self.rho_max,
         }
 
     @staticmethod
@@ -295,9 +286,7 @@ class Geo_Net:
 
     def network_BC_add(self, x, y):
         rho_2 = x**2 + y**2
-        bc_add = 1 - (rho_2 - self.rho_min**2) / (
-            self.rho_max**2 - self.rho_min**2
-        )
+        bc_add = 1 - (rho_2 - self.rho_min**2) / (self.rho_max**2 - self.rho_min**2)
         return bc_add
 
     def get_u(self, x, y, mu):
@@ -540,7 +529,9 @@ class Geo_Net:
         )
 
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu2)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation, mu_visu2).detach().cpu()
+        u_pred = (
+            self.get_u(self.x_collocation, self.y_collocation, mu_visu2).detach().cpu()
+        )
 
         xT = xT.detach().cpu()
         yT = yT.detach().cpu()

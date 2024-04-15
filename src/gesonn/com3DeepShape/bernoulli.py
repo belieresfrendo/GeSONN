@@ -23,20 +23,8 @@ import time
 
 import torch
 import torch.nn as nn
-
-# local imports
-from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import poisson
 from gesonn.com2SympNets import G
-from gesonn.out1Plot import makePlots
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is deepGeometry.py")
@@ -65,34 +53,35 @@ class Geo_Net:
     # constructeur
     def __init__(self, **kwargs):
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
-        
-        if deepGeoDict.get("pde_learning_rate") == None:
-            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
-        if deepGeoDict.get("sympnet_learning_rate") == None:
-            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
-        if deepGeoDict.get("layer_sizes") == None:
-            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
-        if deepGeoDict.get("nb_of_networks") == None:
-            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
-                "nb_of_networks"
+
+        if deepGeoDict.get("pde_learning_rate") is None:
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pde_learning_rate"
             ]
-        if deepGeoDict.get("networks_size") == None:
+        if deepGeoDict.get("sympnet_learning_rate") is None:
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_learning_rate"
+            ]
+        if deepGeoDict.get("layer_sizes") is None:
+            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
+        if deepGeoDict.get("nb_of_networks") is None:
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
+        if deepGeoDict.get("networks_size") is None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
-        if deepGeoDict.get("rho_min") == None:
+        if deepGeoDict.get("rho_min") is None:
             deepGeoDict["rho_min"] = self.DEFAULT_DEEP_GEO_DICT["rho_min"]
-        if deepGeoDict.get("rho_max") == None:
+        if deepGeoDict.get("rho_max") is None:
             deepGeoDict["rho_max"] = self.DEFAULT_DEEP_GEO_DICT["rho_max"]
-        if deepGeoDict.get("file_name") == None:
+        if deepGeoDict.get("file_name") is None:
             deepGeoDict["file_name"] = self.DEFAULT_DEEP_GEO_DICT["file_name"]
-        if deepGeoDict.get("boundary_condition") == None:
+        if deepGeoDict.get("boundary_condition") is None:
             deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
                 "boundary_condition"
             ]
-        if deepGeoDict.get("a") == None:
+        if deepGeoDict.get("a") is None:
             deepGeoDict["a"] = self.DEFAULT_DEEP_GEO_DICT["a"]
-        if deepGeoDict.get("to_be_trained") == None:
+        if deepGeoDict.get("to_be_trained") is None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
-
 
         # Storage file
         self.file_name = (
@@ -124,7 +113,9 @@ class Geo_Net:
         self.to_be_trained = deepGeoDict["to_be_trained"]
 
     def sympnet_layer_append(self, nets, optims, i):
-        nets.append(nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device))
+        nets.append(
+            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+        )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
         )
@@ -369,22 +360,19 @@ class Geo_Net:
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
-        
-        self.x_collocation, self.y_collocation = (
-            self.apply_rejet_kompact(
-                self.x_collocation, self.y_collocation
-            )
+
+        self.x_collocation, self.y_collocation = self.apply_rejet_kompact(
+            self.x_collocation, self.y_collocation
         )
-        
+
     def make_border_collocation(self, n_collocation):
         shape = (n_collocation, 1)
-        
+
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
         self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
         self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
-
 
     def get_mes_border(self):
         n = 10_000
@@ -536,10 +524,12 @@ class Geo_Net:
         dn_u_pred, _, _ = self.get_dn_u(
             self.x_gamma_collocation, self.y_gamma_collocation
         )
-        avg_dn_u = self.get_avg_dn_u(self.x_gamma_collocation, self.y_gamma_collocation, n_visu_border)
+        avg_dn_u = self.get_avg_dn_u(
+            self.x_gamma_collocation, self.y_gamma_collocation, n_visu_border
+        )
 
-        condition_optimalite = (dn_u_pred - avg_dn_u)**2
-        CD_OPTIM = condition_optimalite.sum()/n_visu_border
+        condition_optimalite = (dn_u_pred - avg_dn_u) ** 2
+        CD_OPTIM = condition_optimalite.sum() / n_visu_border
 
         x, y = (
             self.x_collocation.detach().cpu(),
@@ -560,13 +550,13 @@ class Geo_Net:
         ax[0, 1].set_title("$u_{pred}$")
         ax[0, 1].set_aspect("equal")
 
-        im = ax[1,0].scatter(
+        im = ax[1, 0].scatter(
             x,
             y,
             s=1,
         )
-        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
-        ax[1,0].set_aspect("equal")
+        ax[1, 0].set_title("$C$ privé de $T^{-1}E$")
+        ax[1, 0].set_aspect("equal")
 
         im = ax[1, 1].scatter(
             xT_gamma,

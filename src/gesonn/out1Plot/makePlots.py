@@ -6,7 +6,7 @@ rc("text", usetex=True)
 
 
 def loss(loss_history, save_plots, name):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.plot(loss_history)
     ax.set_title("Loss function")
     ax.set_yscale("symlog", linthresh=1e-4)
@@ -15,7 +15,7 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
-def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,7.5)):
+def edp(x, y, u, save_plots, name, title=None, figsize=(7.5, 7.5)):
     fig, ax = plt.subplots(figsize=figsize)
     im = ax.scatter(
         x,
@@ -32,8 +32,9 @@ def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,7.5)):
         plt.savefig(name + ".pdf")
     plt.show()
 
+
 def shape(x, y, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.scatter(
         x,
         y,
@@ -47,8 +48,9 @@ def shape(x, y, save_plots, name, title=None):
 
     plt.show()
 
+
 def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.scatter(x1, y1, s=1)
     ax.scatter(x2, y2, s=1)
     ax.scatter(x3, y3, s=1)
@@ -64,7 +66,7 @@ def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=
 
 
 def shape_error(x, y, u, v, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.scatter(
         u,
         v,
@@ -87,8 +89,9 @@ def shape_error(x, y, u, v, save_plots, name, title=None):
         plt.savefig(name + "_error.pdf")
     plt.show()
 
+
 def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
-    fig, ax = plt.subplots(figsize=(7.5,7.5))
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
     im = ax.scatter(
         x,
         y,
@@ -104,7 +107,7 @@ def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
         c="red",
         label="fixed point optimal shape",
     )
-    ax.legend(bbox_to_anchor=(0.5, -0.2), loc='upper center', borderaxespad=0., ncol=2)
+    ax.legend(bbox_to_anchor=(0.5, -0.2), loc="upper center", borderaxespad=0.0, ncol=2)
     fig.colorbar(im, ax=ax)
     ax.set_aspect("equal")
     if title is not None:

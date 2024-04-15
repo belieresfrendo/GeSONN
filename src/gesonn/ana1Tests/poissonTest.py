@@ -1,24 +1,13 @@
 # imports
 import os
-import torch
-import pandas as pd
 
-# local imports
+import pandas as pd
+import torch
+from gesonn.com1PINNs import metricTensors, poisson
 from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
-# local imports
-from gesonn.com1PINNs import poisson
-from gesonn.com1PINNs import metricTensors
 
 
 def main_poisson_test(testsDict, source_term):
