@@ -18,9 +18,9 @@ if __name__ == "__main__":
     # train = False
 
     deepGeoDict = {
-        "pde_learning_rate": 1e-2,
-        "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 20, 10, 1],
+        "pde_learning_rate": 1e-3,
+        "sympnet_learning_rate": 1e-3,
+        "layer_sizes": [2, 10, 20, 10, 1],
         # "nb_of_networks": 2,
         # "networks_size": 5,
         "nb_of_networks": 4,
@@ -32,10 +32,10 @@ if __name__ == "__main__":
         "to_be_trained": True,
     }
 
-    epochs = 1000
-    n_collocation = 5_000
+    epochs = 15
+    n_collocation = 1_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 
@@ -54,9 +54,9 @@ if __name__ == "__main__":
 
         network = geometry.Geo_Net(
             deepGeoDict=deepGeoDict,
-            switch_to_LBFGS=False,
-            # switch_to_LBFGS=True,
-            switch_to_LBFGS_at=1e5,
+            # switch_to_LBFGS=False,
+            switch_to_LBFGS=True,
+            switch_to_LBFGS_at=1,
         )
 
         if device.type == "cpu":

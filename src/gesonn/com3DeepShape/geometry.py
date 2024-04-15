@@ -396,7 +396,29 @@ class Geo_Net:
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
-        return A_grad_u_grad_u
+        rho_2 = x**2 + y**2
+        xT, yT = self.apply_symplecto(x, y)
+        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+        bc_add = (self.rho_max**2 - rho_2) / (rhoT_2 - rho_2)
+
+        beta_x = torch.autograd.grad(
+            bc_add.sum(), x, create_graph=True, allow_unused=True
+        )[0]
+        beta_y = torch.autograd.grad(
+            bc_add.sum(), y, create_graph=True, allow_unused=True
+        )[0]
+
+        T = self.apply_symplecto(x, y)
+        J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
+        J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
+        J_c = torch.autograd.grad(T[1].sum(), x, create_graph=True)[0]
+        J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
+        inv_det = 1/(J_a*J_d - J_b*J_c)
+        Jt_beta_x = inv_det * (J_d * beta_x - J_c * beta_y)
+        Jt_beta_y = inv_det * (-J_b * beta_x + J_a * beta_y)
+        Jt_beta_grad_u = Jt_beta_x * dx_u + Jt_beta_y * dy_u
+
+        return A_grad_u_grad_u + 2 * Jt_beta_grad_u
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -444,7 +466,32 @@ class Geo_Net:
             rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
             bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
             bc_add = (self.rho_max**2 - rho_2) / (rhoT_2 - rho_2)
-            return self.u_net(xT, yT) * bc_mul + bc_add
+
+            u = self.u_net(xT, yT) * bc_mul
+
+            # SOurce term
+            # beta_x = torch.autograd.grad(
+            #     bc_add.sum(), x, create_graph=True, allow_unused=True
+            # )[0]
+            # beta_y = torch.autograd.grad(
+            #     bc_add.sum(), y, create_graph=True, allow_unused=True
+            # )[0]
+            # beta_xx = torch.autograd.grad(
+            #     beta_x.sum(), x, create_graph=True, allow_unused=True
+            # )[0]
+            # beta_yy = torch.autograd.grad(
+            #     beta_y.sum(), y, create_graph=True, allow_unused=True
+            # )[0]
+            # source_term = + beta_xx + beta_yy
+            
+            # beta = bc_add
+            # alpha = 1/(rhoT_2-rho_2)
+            # gamma_x = 
+
+            # self.fu = source_term * u
+
+            return u
+
         raise NameError("Attention poisson_or_bernoulli")
 
     @staticmethod
@@ -554,7 +601,7 @@ class Geo_Net:
                         grad_u_2 = self.left_hand_term(
                             self.x_collocation, self.y_collocation
                         )
-                        dirichlet_loss = 0.5 * grad_u_2
+                        dirichlet_loss = 0.5 * grad_u_2# - self.fu
                         self.loss = dirichlet_loss.sum() / n_pts * self.Vol
 
                         # dn_u_pred, _, _ = self.get_dn_u(
@@ -730,19 +777,23 @@ class Geo_Net:
 
         n_visu = 25_000
         self.make_collocation(n_visu)
-
+        # u_pred = self.get_u(self.x_collocation, self.y_collocation)
+        x, y = self.x_collocation, self.y_collocation
         xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
         xT_gamma, yT_gamma = self.apply_symplecto(
             self.x_gamma_collocation, self.y_gamma_collocation
         )
 
-        xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation)
+        rho_2 = x**2 + y**2
+        xT, yT = self.apply_symplecto(x, y)
+        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+        bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
+        bc_add = (self.rho_max**2 - rho_2) / (rhoT_2 - rho_2)
+
+        u_pred = self.u_net(xT, yT) * bc_mul + bc_add
         dn_u_pred, _, _ = self.get_dn_u(
             self.x_gamma_collocation, self.y_gamma_collocation
         )
-
-        x, y = self.x_collocation, self.y_collocation
 
         makePlots.edp(
             xT.detach().cpu(),
