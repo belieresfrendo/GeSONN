@@ -14,7 +14,7 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
-def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,7.5)):
+def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,5)):
     fig, ax = plt.subplots(figsize=figsize)
     im = ax.scatter(
         x,
@@ -32,7 +32,7 @@ def edp(x, y, u, save_plots, name, title=None, figsize=(7.5,7.5)):
     plt.show()
 
 def shape(x, y, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5,5))
     ax.scatter(
         x,
         y,
@@ -47,7 +47,7 @@ def shape(x, y, save_plots, name, title=None):
     plt.show()
 
 def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(5,5))
+    _, ax = plt.subplots(figsize=(7.5,5))
     ax.scatter(x1, y1, s=1)
     ax.scatter(x2, y2, s=1)
     ax.scatter(x3, y3, s=1)
@@ -63,7 +63,7 @@ def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=
 
 
 def shape_error(x, y, u, v, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5,7.5))
+    _, ax = plt.subplots(figsize=(7.5,5))
     ax.scatter(
         u,
         v,

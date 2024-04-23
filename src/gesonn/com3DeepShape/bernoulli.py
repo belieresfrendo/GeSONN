@@ -311,14 +311,18 @@ class Geo_Net:
 
     def left_hand_term(self, x, y):
         u = self.get_u(x, y)
+        g = self.get_g(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
 
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dx_g = torch.autograd.grad(g.sum(), x, create_graph=True)[0]
         dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        dy_g = torch.autograd.grad(g.sum(), y, create_graph=True)[0]
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
+        A_grad_g_grad_g = (a * dx_g + b * dy_g) * dx_g + (c * dx_g + d * dy_g) * dy_g
 
-        return A_grad_u_grad_u
+        return A_grad_u_grad_u - A_grad_g_grad_g
 
     def apply_symplecto(self, x, y):
         x, y = x, y
@@ -332,6 +336,13 @@ class Geo_Net:
             y = y - self.down_nets[self.nb_of_networks - 1 - i](x)
             x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
         return x, y
+
+    def get_g(self, x, y):
+        rho_2 = x**2 + y**2
+        xT, yT = self.apply_symplecto(x, y)
+        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
+        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - rho_2 + rhoT_2 - 1)
+        return bc_add
 
     def get_u(self, x, y):
         rho_2 = x**2 + y**2
@@ -582,4 +593,31 @@ class Geo_Net:
         print("Dirichlet energy", self.loss.item())
         print("Condition d'optimalité", CD_OPTIM.item())
 
+        plt.show()
+
+
+        fig, ax = plt.subplots()
+        im = ax.scatter(
+            xT,
+            yT,
+            s=1,
+            c=u_pred,
+            cmap="gist_ncar",
+        )
+        fig.colorbar(im, ax=ax)
+        ax.set_title("$u_{pred}$")
+        ax.set_aspect("equal")
+        plt.show()
+
+        fig, ax = plt.subplots()
+        im = ax.scatter(
+            xT_gamma,
+            yT_gamma,
+            s=1,
+            c=condition_optimalite.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        fig.colorbar(im, ax=ax)
+        ax.set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
+        ax.set_aspect("equal")
         plt.show()

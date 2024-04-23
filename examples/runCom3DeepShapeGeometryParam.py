@@ -20,23 +20,23 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [3, 10, 20, 10, 1],
+        "layer_sizes": [3, 10, 20, 80, 20, 10, 1],
         "nb_of_networks": 2,
         "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
-        "mu_max": 2,
+        "mu_max": 1.5,
         "file_name": "default",
         "to_be_trained": True,
         "source_term": "ellipse",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 10_000
-    n_collocation = 1000
+    epochs = 200
+    n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

@@ -570,7 +570,12 @@ class Geo_Net:
         xT_border_3, yT_border_3 = self.apply_symplecto(x_border, y_border, mu_visu_3)
         xT_border_4, yT_border_4 = self.apply_symplecto(x_border, y_border, mu_visu_4)
         xT_border_5, yT_border_5 = self.apply_symplecto(x_border, y_border, mu_visu_5)
-        # dn_u, _, _ = self.get_dn_u(x_border, y_border)
+        
+        dn_u_1, _, _ = self.get_dn_u(x_border, y_border, mu_visu_1)
+        dn_u_2, _, _ = self.get_dn_u(x_border, y_border, mu_visu_2)
+        dn_u_3, _, _ = self.get_dn_u(x_border, y_border, mu_visu_3)
+        dn_u_4, _, _ = self.get_dn_u(x_border, y_border, mu_visu_4)
+        dn_u_5, _, _ = self.get_dn_u(x_border, y_border, mu_visu_5)
 
 
         # makePlots.edp(
@@ -597,7 +602,7 @@ class Geo_Net:
             u_pred_1.detach().cpu(),
             save_plots,
             self.fig_storage + "_edp_1",
-            title="EDP",
+            title="$\mu=$"+str(mu_visu_1[0].item())[:4],
         )
         makePlots.edp(
             xT_2.detach().cpu(),
@@ -617,7 +622,7 @@ class Geo_Net:
             u_pred_2.detach().cpu(),
             save_plots,
             self.fig_storage + "_edp_2",
-            title="EDP",
+            title="$\mu=$"+str(mu_visu_2[0].item())[:4],
         )
         makePlots.edp(
             xT_3.detach().cpu(),
@@ -637,7 +642,7 @@ class Geo_Net:
             u_pred_3.detach().cpu(),
             save_plots,
             self.fig_storage + "_edp_3",
-            title="EDP",
+            title="$\mu=$"+str(mu_visu_3[0].item())[:4],
         )
         makePlots.edp(
             xT_4.detach().cpu(),
@@ -657,7 +662,7 @@ class Geo_Net:
             u_pred_4.detach().cpu(),
             save_plots,
             self.fig_storage + "_edp_4",
-            title="EDP",
+            title="$\mu=$"+str(mu_visu_4[0].item())[:4],
         )
         makePlots.edp(
             xT_5.detach().cpu(),
@@ -677,7 +682,7 @@ class Geo_Net:
             u_pred_5.detach().cpu(),
             save_plots,
             self.fig_storage + "_edp_5",
-            title="EDP",
+            title="$\mu=$"+str(mu_visu_5[0].item())[:4],
         )
 
         makePlots.param_shape(
@@ -690,3 +695,49 @@ class Geo_Net:
             self.fig_storage,
             title="superposition of learned shapes",
         )
+
+        import matplotlib.pyplot as plt
+        from matplotlib import rc
+        rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
+        rc("text", usetex=True)       
+
+        fig, ax = plt.subplots()#figsize=(7.5,5)
+        im = ax.scatter(
+            xT_border_1.detach().cpu(),
+            yT_border_1.detach().cpu(),
+            s=1,
+            c=dn_u_1.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        im = ax.scatter(
+            xT_border_2.detach().cpu(),
+            yT_border_2.detach().cpu(),
+            s=1,
+            c=dn_u_2.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        im = ax.scatter(
+            xT_border_3.detach().cpu(),
+            yT_border_3.detach().cpu(),
+            s=1,
+            c=dn_u_3.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        im = ax.scatter(
+            xT_border_4.detach().cpu(),
+            yT_border_4.detach().cpu(),
+            s=1,
+            c=dn_u_4.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        im = ax.scatter(
+            xT_border_5.detach().cpu(),
+            yT_border_5.detach().cpu(),
+            s=1,
+            c=dn_u_5.detach().cpu(),
+            cmap="gist_ncar",
+        )
+        fig.colorbar(im, ax=ax)
+        ax.set_title("Optimality conditions")
+        plt.show()
+

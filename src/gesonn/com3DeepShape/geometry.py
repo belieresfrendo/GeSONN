@@ -513,7 +513,7 @@ class Geo_Net:
             dn_u.detach().cpu(),
             save_plots,
             self.fig_storage + "_gradn",
-            title="gradient normal",
+            title="Optimality condition",
         )
         makePlots.edp(
             xT.detach().cpu(),
