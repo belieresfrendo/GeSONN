@@ -345,12 +345,20 @@ class Geo_Net:
         return bc_add
 
     def get_u(self, x, y):
-        rho_2 = x**2 + y**2
         xT, yT = self.apply_symplecto(x, y)
-        rhoT_2 = (xT / self.a) ** 2 + (yT / self.b) ** 2
-        bc_mul = (rho_2 - self.rho_max**2) * (rhoT_2 - 1)
-        bc_add = (self.rho_max**2 - rho_2) / (self.rho_max**2 - rho_2 + rhoT_2 - 1)
-        return self.u_net(xT, yT) * bc_mul + bc_add
+
+        return bc.apply_BC(
+            self.u_net(xT, yT),
+            x,
+            y,
+            self.rho_min,
+            self.rho_max,
+            name=self.boundary_condition,
+            xT = xT,
+            yT = yT,
+            a=self.a,
+            b=self.b,
+        )
 
     def apply_rejet_kompact(self, x, y):
         xT, yT = self.apply_symplecto(x, y)

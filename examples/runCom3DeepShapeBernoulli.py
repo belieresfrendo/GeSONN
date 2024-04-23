@@ -28,11 +28,11 @@ if __name__ == "__main__":
         "rho_max": 1,
         "file_name": "bernoulli_7",
         "to_be_trained": True,
-        "boundary_condition": "c moua",
+        "boundary_condition": "bernoulli",
         "a": 0.6,
     }
 
-    epochs = 1000
+    epochs = 200
     n_collocation = 10_000
     new_training = False
     new_training = True

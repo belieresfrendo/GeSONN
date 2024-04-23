@@ -1,4 +1,4 @@
-def apply_BC(u, x, y, rho_min, rho_max, name=None):
+def apply_BC(u, x, y, rho_min, rho_max, name=None, xT=None, yT=None, a=None, b=None):
 
     bc_mul = 0
     bc_add = 0
@@ -10,8 +10,9 @@ def apply_BC(u, x, y, rho_min, rho_max, name=None):
             bc_mul = -bc_mul * (rho_min**2 - rho_2)
         bc_add = 0
 
-    elif name == "bernoulli" and rho_min > 0:
-        bc_mul = (rho_2 - rho_max**2) * (rho_min**2 - rho_2)
-        bc_add = 1 - (rho_2 - rho_min**2) / (rho_max**2 - rho_min**2)
+    elif name == "bernoulli":
+        rhoT_2 = (xT / a) ** 2 + (yT / b) ** 2
+        bc_mul = (rho_2 - rho_max**2) * (rhoT_2 - 1)
+        bc_add = (rho_max**2 - rho_2) / (rho_max**2 - rho_2 + rhoT_2 - 1)
 
     return u * bc_mul + bc_add
