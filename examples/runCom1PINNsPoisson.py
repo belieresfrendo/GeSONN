@@ -36,7 +36,7 @@ if __name__ == "__main__":
     new_training = True
     save_plots = False
     save_plots = True
-    
+
     # ==============================================================
     # End of the modifiable area
     # ==============================================================
@@ -70,4 +70,4 @@ if __name__ == "__main__":
 
     else:
         network = poisson.PINNs()
-        network.plot_result()
+        network.plot_result(False)

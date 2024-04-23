@@ -17,17 +17,17 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
+from gesonn.com1PINNs import boundary_conditions as bc
+from gesonn.com1PINNs import metricTensors, sourceTerms
 
 # local imports
 from gesonn.out1Plot import makePlots
-from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import metricTensors
-from gesonn.com1PINNs import sourceTerms
 
 try:
     import torchinfo
@@ -391,6 +391,14 @@ class PINNs:
             save_plots,
             self.fig_storage,
             title="Solution de l'EDP tensorisée",
+        )
+
+        makePlots.edp_contour(
+            self.rho_min,
+            self.rho_max,
+            self.get_u,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
         )
 
 
