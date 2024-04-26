@@ -21,7 +21,7 @@ if __name__ == "__main__":
     PINNsDict = {
         "learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
-        "rho_min": 0,
+        "rho_min": 0.3,
         "rho_max": 1,
         "file_name": "default",
         "symplecto_name": "bizaroid",
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 2000
+    epochs = 200
     n_collocation = 10_000
     new_training = False
     new_training = True

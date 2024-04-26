@@ -1,11 +1,11 @@
 """
-Author:
-    A BELIERES FRENDO (ENSTA Paris)
+Authors:
+    A. BELIERES--FRENDO (IRMA)
+    V. MICHEL-DANSAC    (INRIA)
 Date:
-    24/02/2024
+    2023 - 2024
 
-ML for shape optimization
-Inspired from a code given by V MICHEL DANSAC (INRIA)
+
 """
 
 

@@ -62,15 +62,15 @@ class Symp_Net_Forward(nn.DataParallel):
             + (max_value - min_value)
             * torch.rand(size, dtype=torch.double, device=device)
         )
-        self.k_eff = torch.nn.parameter.Parameter(
-            min_value
-            + (max_value - min_value)
-            * torch.rand(size, dtype=torch.double, device=device)
-        )
-        # self.a = torch.nn.parameter.Parameter(
+        # self.k_eff = torch.nn.parameter.Parameter(
         #     min_value
-        #     + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+        #     + (max_value - min_value)
+        #     * torch.rand(size, dtype=torch.double, device=device)
         # )
+        self.a = torch.nn.parameter.Parameter(
+            min_value
+            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+        )
         self.b = torch.nn.parameter.Parameter(
             min_value
             + (max_value - min_value)
@@ -83,12 +83,12 @@ class Symp_Net_Forward(nn.DataParallel):
         shape_x_or_y = x_or_y.size()
         ones = torch.ones(shape_x_or_y, device=device)
         B = torch.einsum("ik,jk->ijk", self.b, ones)
-        # A = torch.einsum("ik,jk->ijk", self.a, ones)
+        A = torch.einsum("ik,jk->ijk", self.a, ones)
         Kmu = torch.einsum("ik,jk->ijk", self.k_mu, mu)
-        # Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
-        sigma = torch.tanh(Kx_or_y + B + Kmu)
-        # return torch.einsum("ik,ijk->jk", self.k, Asigma)
-        return torch.einsum("ik,ijk->jk", self.k_eff, sigma)
+        Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
+        # sigma = torch.tanh(Kx_or_y + B + Kmu)
+        return torch.einsum("ik,ijk->jk", self.k, Asigma)
+        # return torch.einsum("ik,ijk->jk", self.k_eff, sigma)
 
 
 # ----------------------------------------------------------------------
@@ -146,7 +146,7 @@ class Symp_Net:
             + ".pth"
         )
         self.fig_storage = (
-            "./../outputs/SympNets/param_" + SympNetsDict["file_name"]
+            "./../outputs/SympNets/img/param_" + SympNetsDict["file_name"]
         )
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)

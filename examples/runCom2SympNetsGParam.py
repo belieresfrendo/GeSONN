@@ -19,8 +19,8 @@ if __name__ == "__main__":
 
     SympNetsDict = {
         "learning_rate": 1e-2,
-        "nb_of_networks": 4,
-        "networks_size": 10,
+        "nb_of_networks": 8,
+        "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     epochs = 50_000
     n_collocation = 10_000
     new_training = False
-    # new_training = True
-    save_plots = False
+    new_training = True
+    # save_plots = False
     save_plots = True
 
     # ==============================================================
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/SympNets/net/param" + SympNetsDict["file_name"] + ".pth"
+                    "./../outputs/SympNets/net/param_" + SympNetsDict["file_name"] + ".pth"
                 )
             except FileNotFoundError:
                 pass

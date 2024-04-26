@@ -24,14 +24,14 @@ if __name__ == "__main__":
         "rho_min": 0,
         "rho_max": 1,
         "file_name": "default",
-        "symplecto_name": "ellipse",
+        "symplecto_name": "bizaroid",
         "to_be_trained": True,
     }
 
-    epochs = 10
+    epochs = 1000
     n_collocation = 1000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

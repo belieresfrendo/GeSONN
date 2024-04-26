@@ -1,3 +1,13 @@
+"""
+Authors:
+    A. BELIERES--FRENDO (IRMA)
+    V. MICHEL-DANSAC    (INRIA)
+Date:
+    2023 - 2024
+
+Run script for 
+"""
+
 # imports
 import os
 

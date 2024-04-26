@@ -18,11 +18,11 @@ if __name__ == "__main__":
     # ==============================================================
 
     deepGeoDict = {
-        "pde_learning_rate": 1e-2,
-        "sympnet_learning_rate": 1e-2,
+        "pde_learning_rate": 5e-4,
+        "sympnet_learning_rate": 5e-4,
         "layer_sizes": [3, 10, 20, 80, 20, 10, 1],
-        "nb_of_networks": 2,
-        "networks_size": 5,
+        "nb_of_networks": 4,
+        "networks_size": 8,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
@@ -33,10 +33,10 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 200
+    epochs = 5
     n_collocation = 10_000
-    new_training = False
-    # new_training = True
+    # new_training = False
+    new_training = True
     save_plots = False
     save_plots = True
 
