@@ -446,23 +446,17 @@ class Symp_Net:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_shape = 10_000
-        self.make_collocation(n_shape)
-
-        x_ex, y_ex = metricTensors.apply_symplecto(
-            self.x_collocation, self.y_collocation, name=self.name_symplecto
-        )
-        x_net, y_net = self.apply_symplecto(self.x_collocation, self.y_collocation)
-
         makePlots.shape(
-            x_net.detach().cpu(), y_net.detach().cpu(), save_plots, self.fig_storage
-        )
-        makePlots.shape_error(
-            x_net.detach().cpu(),
-            y_net.detach().cpu(),
-            x_ex.detach().cpu(),
-            y_ex.detach().cpu(),
+            self.rho_max,
+            lambda x, y: self.apply_symplecto(x, y),
             save_plots,
             self.fig_storage,
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}",
+        )
+
+        makePlots.shape_error(
+            self.rho_max,
+            lambda x, y: self.apply_symplecto(x, y),
+            lambda x,y : metricTensors.apply_symplecto(x,y,name=self.name_symplecto),
+            save_plots,
+            self.fig_storage,
         )

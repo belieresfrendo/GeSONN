@@ -14,30 +14,14 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
-def edp(x, y, u, save_plots, name, title=None, figsize=(7.5, 5)):
-    fig, ax = plt.subplots(figsize=figsize)
-    im = ax.scatter(
-        x,
-        y,
-        s=1,
-        c=u,
-        cmap="gist_ncar",
-    )
-    fig.colorbar(im, ax=ax)
-    ax.set_aspect("equal")
-    if title is not None:
-        ax.set_title(title)
-    if save_plots:
-        plt.savefig(name + ".pdf")
-    plt.show()
-
-
 def edp_contour(
     rho_min,
     rho_max,
     get_u,
     apply_symplecto,
     apply_inverse_symplecto,
+    save_plots,
+    name,
     n_visu=768,
     n_contour=250,
     draw_contours=True,
@@ -47,12 +31,14 @@ def edp_contour(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 1_000, dtype=torch.float64)[:, None]
+    theta = torch.linspace(
+        0, 2 * np.pi, 10_000, dtype=torch.float64, requires_grad=True
+    )[:, None]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     x, y = apply_symplecto(x, y)
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
+    x_min, x_max = x.min().item(), x.max().item()
+    y_min, y_max = y.min().item(), y.max().item()
     lx = x_max - x_min
     ly = y_max - y_min
     x_max += 0.025 * max(lx, ly)
@@ -61,9 +47,9 @@ def edp_contour(
     y_min -= 0.025 * max(lx, ly)
 
     # make meshgrid
-    x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+    x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64, requires_grad=True)
     x_ = torch.tile(x, (n_visu,))[:, None]
-    y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+    y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64, requires_grad=True)
     y_ = torch.repeat_interleave(y, n_visu)[:, None]
 
     # apply the inverse symplecto to get u
@@ -86,6 +72,7 @@ def edp_contour(
         cmap="turbo",
         zorder=-9,
     )
+
     if draw_contours:
         ax.contour(
             im,
@@ -99,63 +86,497 @@ def edp_contour(
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
+    if save_plots:
+        plt.savefig(name + ".pdf")
     plt.show()
 
 
-def shape(x, y, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5, 5))
-    ax.scatter(
+def edp_contour_param(
+    rho_min,
+    rho_max,
+    mu_min,
+    mu_max,
+    get_u,
+    apply_symplecto,
+    apply_inverse_symplecto,
+    save_plots,
+    name,
+    n_visu=768,
+    n_contour=250,
+    draw_contours=True,
+    n_drawn_contours=10,
+):
+    import numpy as np
+    import torch
+
+    mu_list = [
+        mu_min,
+        0.75 * mu_min + 0.25 * mu_max,
+        0.5 * mu_min + mu_max,
+        0.25 * mu_min + 0.75 * mu_max,
+        mu_max,
+    ]
+
+    for mu in mu_list:
+        # measuring the min and max coordinates of the bounding box
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        x = rho_max * torch.cos(theta)
+        y = rho_max * torch.sin(theta)
+        x, y = apply_symplecto(x, y)
+        x_min, x_max = x.min(), x.max()
+        y_min, y_max = y.min(), y.max()
+        lx = x_max - x_min
+        ly = y_max - y_min
+        x_max += 0.025 * max(lx, ly)
+        x_min -= 0.025 * max(lx, ly)
+        y_max += 0.025 * max(lx, ly)
+        y_min -= 0.025 * max(lx, ly)
+        # make meshgrid
+        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+        x_ = torch.tile(x, (n_visu,))[:, None]
+        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+        y_ = torch.repeat_interleave(y, n_visu)[:, None]
+        ones_ = torch.ones_like(x_)
+        mu_visu_ = mu * ones_
+
+        # apply the inverse symplecto to get u
+        xT_inv, yT_inv = apply_inverse_symplecto(x_, y_)
+        u = (
+            get_u(xT_inv, yT_inv, mu_visu_)[:, 0]
+            .detach()
+            .cpu()
+            .reshape((n_visu, n_visu))
+        )
+
+        # mask u outside the domain
+        x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
+        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (
+            xT_inv**2 + yT_inv**2 < rho_min**2
+        )
+        u = np.ma.array(u, mask=mask)
+
+        # draw the contours
+        fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+        im = ax.contourf(
+            x,
+            y,
+            u,
+            n_contour,
+            cmap="turbo",
+            zorder=-9,
+        )
+        if draw_contours:
+            ax.contour(
+                im,
+                levels=im.levels[:: n_contour // n_drawn_contours],
+                zorder=-9,
+                colors="white",
+                alpha=0.5,
+                linewidths=0.8,
+            )
+        fig.colorbar(im, ax=ax)
+
+        ax.set_aspect("equal")
+        plt.gca().set_rasterization_zorder(-1)
+        if save_plots:
+            plt.savefig(name + f"_mu_{mu:3.2f}.pdf")
+        plt.show()
+
+
+def edp_contour_param_source(
+    rho_min,
+    rho_max,
+    mu_min,
+    mu_max,
+    get_u,
+    apply_symplecto,
+    apply_inverse_symplecto,
+    save_plots,
+    name,
+    n_visu=768,
+    n_contour=250,
+    draw_contours=True,
+    n_drawn_contours=10,
+):
+    import numpy as np
+    import torch
+
+    mu_list = [
+        mu_min,
+        0.75 * mu_min + 0.25 * mu_max,
+        0.5 * mu_min + mu_max,
+        0.25 * mu_min + 0.75 * mu_max,
+        mu_max,
+    ]
+
+    for mu in mu_list:
+        # measuring the min and max coordinates of the bounding box
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        x = rho_max * torch.cos(theta)
+        y = rho_max * torch.sin(theta)
+        x, y = apply_symplecto(x, y, mu * torch.ones_like(x))
+        x_min, x_max = x.min().item(), x.max().item()
+        y_min, y_max = y.min().item(), y.max().item()
+        lx = x_max - x_min
+        ly = y_max - y_min
+        x_max += 0.025 * max(lx, ly)
+        x_min -= 0.025 * max(lx, ly)
+        y_max += 0.025 * max(lx, ly)
+        y_min -= 0.025 * max(lx, ly)
+        # make meshgrid
+        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+        x_ = torch.tile(x, (n_visu,))[:, None]
+        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+        y_ = torch.repeat_interleave(y, n_visu)[:, None]
+        ones_ = torch.ones_like(x_)
+        mu_visu_ = mu * ones_
+
+        # apply the inverse symplecto to get u
+        xT_inv, yT_inv = apply_inverse_symplecto(x_, y_, mu_visu_)
+        u = (
+            get_u(xT_inv, yT_inv, mu_visu_)[:, 0]
+            .detach()
+            .cpu()
+            .reshape((n_visu, n_visu))
+        )
+        # mask u outside the domain
+        x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
+
+        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (
+            xT_inv**2 + yT_inv**2 < rho_min**2
+        )
+        u = np.ma.array(u, mask=mask)
+
+        # draw the contours
+        fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+        im = ax.contourf(
+            x,
+            y,
+            u,
+            n_contour,
+            cmap="turbo",
+            zorder=-9,
+        )
+
+        if draw_contours:
+            ax.contour(
+                im,
+                levels=im.levels[:: n_contour // n_drawn_contours],
+                zorder=-9,
+                colors="white",
+                alpha=0.5,
+                linewidths=0.8,
+            )
+        fig.colorbar(im, ax=ax)
+
+        ax.set_aspect("equal")
+        plt.gca().set_rasterization_zorder(-1)
+        if save_plots:
+            plt.savefig(name + f"_mu_{mu:3.2f}.pdf")
+        plt.show()
+
+
+def edp_contour_bernoulli(
+    rho_max,
+    a,
+    b,
+    get_u,
+    apply_symplecto,
+    apply_inverse_symplecto,
+    save_plots,
+    name,
+    n_visu=768,
+    n_contour=250,
+    draw_contours=True,
+    n_drawn_contours=10,
+):
+    import numpy as np
+    import torch
+
+    # measuring the min and max coordinates of the bounding box
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+    x = rho_max * torch.cos(theta)
+    y = rho_max * torch.sin(theta)
+    x, y = apply_symplecto(x, y)
+    x_min, x_max = x.min().item(), x.max().item()
+    y_min, y_max = y.min().item(), y.max().item()
+    lx = x_max - x_min
+    ly = y_max - y_min
+    x_max += 0.025 * max(lx, ly)
+    x_min -= 0.025 * max(lx, ly)
+    y_max += 0.025 * max(lx, ly)
+    y_min -= 0.025 * max(lx, ly)
+
+    # make meshgrid
+    x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+    x_ = torch.tile(x, (n_visu,))[:, None]
+    y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+    y_ = torch.repeat_interleave(y, n_visu)[:, None]
+
+    # apply the inverse symplecto to get u
+    xT_inv, yT_inv = apply_inverse_symplecto(x_, y_)
+    u = get_u(xT_inv, yT_inv)[:, 0].detach().cpu().reshape((n_visu, n_visu))
+
+    # mask u outside the domain
+    x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
+    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_ / a) ** 2 + (y_ / b) ** 2 < 1)
+    u = np.ma.array(u, mask=mask)
+
+    # draw the contours
+    fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    im = ax.contourf(
         x,
         y,
+        u,
+        n_contour,
+        cmap="turbo",
+        zorder=-9,
+    )
+
+    if draw_contours:
+        ax.contour(
+            im,
+            levels=im.levels[:: n_contour // n_drawn_contours],
+            zorder=-9,
+            colors="white",
+            alpha=0.5,
+            linewidths=0.8,
+        )
+    fig.colorbar(im, ax=ax)
+
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
+    if save_plots:
+        plt.savefig(name + ".pdf")
+    plt.show()
+
+
+def shape(rho_max, apply_symplecto, save_plots, name):
+
+    import numpy as np
+    import torch
+
+    # measuring the min and max coordinates of the bounding box
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+    x = rho_max * torch.cos(theta)
+    y = rho_max * torch.sin(theta)
+    xT, yT = apply_symplecto(x, y)
+    xT_min, xT_max = xT.min().item(), xT.max().item()
+    yT_min, yT_max = yT.min().item(), yT.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    ax.scatter(
+        xT.detach().cpu(),
+        yT.detach().cpu(),
         s=1,
     )
     ax.set_aspect("equal")
-    if title is not None:
-        ax.set_title(title)
     if save_plots:
         plt.savefig(name + ".pdf")
 
     plt.show()
 
 
-def param_shape(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5, 5))
-    ax.scatter(x1, y1, s=1)
-    ax.scatter(x2, y2, s=1)
-    ax.scatter(x3, y3, s=1)
-    ax.scatter(x4, y4, s=1)
-    ax.scatter(x5, y5, s=1)
-    ax.set_aspect("equal")
-    if title is not None:
-        ax.set_title(title)
+def shape_error(rho_max, apply_symplecto, apply_exact_symplecto, save_plots, name):
+    import numpy as np
+    import torch
+
+    # measuring the min and max coordinates of the bounding box
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+    x = rho_max * torch.cos(theta)
+    y = rho_max * torch.sin(theta)
+    xT_pred, yT_pred = apply_symplecto(x, y)
+    xT_ex, yT_ex = apply_exact_symplecto(x, y)
+    xT_min, xT_max = xT_pred.min().item(), xT_pred.max().item()
+    yT_min, yT_max = yT_pred.min().item(), yT_pred.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    ax.scatter(
+        xT_ex.detach().cpu(),
+        yT_ex.detach().cpu(),
+        s=25,
+        c="red",
+    )
+    ax.scatter(
+        xT_pred.detach().cpu(),
+        yT_pred.detach().cpu(),
+        s=1,
+        c="green",
+    )
+
     if save_plots:
-        plt.savefig(name + "_superposititon.pdf")
+        plt.savefig(name + "_error.pdf")
+    plt.show()
+
+
+def param_shape_error(
+    rho_max, mu_min, mu_max, apply_symplecto, apply_exact_symplecto, save_plots, name
+):
+
+    import numpy as np
+    import torch
+
+    mu_list = [
+        mu_min,
+        0.75 * mu_min + 0.25 * mu_max,
+        0.5 * mu_min + mu_max,
+        0.25 * mu_min + 0.75 * mu_max,
+        mu_max,
+    ]
+
+    for mu in mu_list:
+        # measuring the min and max coordinates of the bounding box
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        x = rho_max * torch.cos(theta)
+        y = rho_max * torch.sin(theta)
+        mu_ = mu * torch.ones_like(x)
+        xT_pred, yT_pred = apply_symplecto(x, y, mu_)
+        xT_ex, yT_ex = apply_exact_symplecto(x, y, mu_)
+        xT_min, xT_max = xT_pred.min().item(), xT_pred.max().item()
+        yT_min, yT_max = yT_pred.min().item(), yT_pred.max().item()
+        lx = xT_max - xT_min
+        ly = yT_max - yT_min
+
+        # draw the contours
+        _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+        ax.scatter(xT_ex.detach().cpu(), yT_ex.detach().cpu(), s=25, c="red")
+        ax.scatter(xT_pred.detach().cpu(), yT_pred.detach().cpu(), s=1, c="green")
+        ax.set_aspect("equal")
+        if save_plots:
+            plt.savefig(name + f"_mu{mu:3.2f}.pdf")
+
+        plt.show()
+
+
+def param_shape_superposition(
+    rho_max, mu_min, mu_max, apply_symplecto, save_plots, name
+):
+    import numpy as np
+    import torch
+
+    mu_list = [
+        mu_min,
+        0.75 * mu_min + 0.25 * mu_max,
+        0.5 * mu_min + mu_max,
+        0.25 * mu_min + 0.75 * mu_max,
+        mu_max,
+    ]
+
+    lx, ly = 0, 0
+
+    for mu in mu_list:
+        # measuring the min and max coordinates of the bounding box
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        x = rho_max * torch.cos(theta)
+        y = rho_max * torch.sin(theta)
+        mu_ = mu * torch.ones_like(x)
+        xT_pred, yT_pred = apply_symplecto(x, y, mu_)
+        xT_min, xT_max = xT_pred.min().item(), xT_pred.max().item()
+        yT_min, yT_max = yT_pred.min().item(), yT_pred.max().item()
+        lx = max(lx, xT_max - xT_min)
+        ly = max(ly, yT_max - yT_min)
+
+    # draw the contours
+    _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    for mu in mu_list:
+        # measuring the min and max coordinates of the bounding box
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        x = rho_max * torch.cos(theta)
+        y = rho_max * torch.sin(theta)
+        mu_ = mu * torch.ones_like(x)
+        xT_pred, yT_pred = apply_symplecto(x, y, mu_)
+
+        ax.scatter(
+            xT_pred.detach().cpu(),
+            yT_pred.detach().cpu(),
+            s=1,
+        )
+
+    if save_plots:
+        plt.savefig(name + "_superposition.pdf")
+    plt.show()
+
+
+def optimality_condition(get_optimality_condition, save_plots, name):
+
+    optimality_condition, xT, yT = get_optimality_condition()
+    xT_min, xT_max = xT.min().item(), xT.max().item()
+    yT_min, yT_max = yT.min().item(), yT.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    im = ax.scatter(
+        xT.detach().cpu(),
+        yT.detach().cpu(),
+        s=1,
+        c=optimality_condition.detach().cpu(),
+        cmap="turbo",
+    )
+
+    fig.colorbar(im, ax=ax)
+    ax.set_aspect("equal")
+    if save_plots:
+        plt.savefig(name + ".pdf")
 
     plt.show()
 
 
-def shape_error(x, y, u, v, save_plots, name, title=None):
-    _, ax = plt.subplots(figsize=(7.5, 5))
-    ax.scatter(
-        u,
-        v,
-        s=50,
-        c="red",
-        label="fixed point optimal shape",
-    )
-    ax.scatter(
-        x,
-        y,
-        s=1,
-        c="green",
-        label="GeSONN optimal shape",
-    )
+def optimality_condition_param(
+    mu_min, mu_max, get_optimality_condition, save_plots, name
+):
+
+    mu_list = [
+        mu_min,
+        0.75 * mu_min + 0.25 * mu_max,
+        0.5 * mu_min + mu_max,
+        0.25 * mu_min + 0.75 * mu_max,
+        mu_max,
+    ]
+
+    lx, ly = 0, 0
+
+    for mu in mu_list:
+        optimality_condition, xT, yT = get_optimality_condition(mu)
+        xT_min, xT_max = xT.min().item(), xT.max().item()
+        yT_min, yT_max = yT.min().item(), yT.max().item()
+        lx = max(lx, xT_max - xT_min)
+        ly = max(ly, yT_max - yT_min)
+
+    # draw the contours
+    fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    for mu in mu_list:
+        optimality_condition, xT, yT = get_optimality_condition(mu)
+        xT_min, xT_max = xT.min().item(), xT.max().item()
+        yT_min, yT_max = yT.min().item(), yT.max().item()
+        im = ax.scatter(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            s=1,
+            c=optimality_condition.detach().cpu(),
+            cmap="turbo",
+        )
+
+    fig.colorbar(im, ax=ax)
     ax.set_aspect("equal")
-    ax.legend()
-    if title is not None:
-        ax.set_title(title)
     if save_plots:
-        plt.savefig(name + "_error.pdf")
+        plt.savefig(name + "_superposition.pdf")
     plt.show()
 
 

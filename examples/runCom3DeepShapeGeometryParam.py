@@ -7,7 +7,7 @@ import torch
 from gesonn.com3DeepShape import geometryParam
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py")
+print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryParam.py")
 
 if __name__ == "__main__":
     train = True
@@ -18,8 +18,8 @@ if __name__ == "__main__":
     # ==============================================================
 
     deepGeoDict = {
-        "pde_learning_rate": 5e-4,
-        "sympnet_learning_rate": 5e-4,
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
         "layer_sizes": [3, 10, 20, 80, 20, 10, 1],
         "nb_of_networks": 4,
         "networks_size": 8,
@@ -33,10 +33,10 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 5
+    epochs = 1000
     n_collocation = 10_000
-    # new_training = False
-    new_training = True
+    new_training = False
+    # new_training = True
     save_plots = False
     save_plots = True
 
@@ -50,7 +50,6 @@ if __name__ == "__main__":
                 os.remove(
                     "./../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
                 )
-                print("bite")
             except FileNotFoundError:
                 pass
 

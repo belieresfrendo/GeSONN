@@ -30,10 +30,10 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 200
+    epochs = 1000
     n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

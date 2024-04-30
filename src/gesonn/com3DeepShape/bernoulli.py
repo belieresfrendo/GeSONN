@@ -8,7 +8,6 @@ Date:
 
 """
 
-
 # %%
 
 
@@ -65,17 +64,19 @@ class Geo_Net:
     # constructeur
     def __init__(self, **kwargs):
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
-        
+
         if deepGeoDict.get("pde_learning_rate") == None:
-            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pde_learning_rate"
+            ]
         if deepGeoDict.get("sympnet_learning_rate") == None:
-            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_learning_rate"
+            ]
         if deepGeoDict.get("layer_sizes") == None:
             deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
         if deepGeoDict.get("nb_of_networks") == None:
-            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
-                "nb_of_networks"
-            ]
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
         if deepGeoDict.get("networks_size") == None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
         if deepGeoDict.get("rho_min") == None:
@@ -93,11 +94,11 @@ class Geo_Net:
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
 
-
         # Storage file
         self.file_name = (
             "./../../../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
         )
+        self.fig_storage = "./../outputs/deepShape/img/" + deepGeoDict["file_name"]
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
@@ -124,7 +125,9 @@ class Geo_Net:
         self.to_be_trained = deepGeoDict["to_be_trained"]
 
     def sympnet_layer_append(self, nets, optims, i):
-        nets.append(nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device))
+        nets.append(
+            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+        )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
         )
@@ -247,16 +250,21 @@ class Geo_Net:
             file_name,
         )
 
+    def get_jacobian_matrix(self, x, y):
+        xT, yT = self.apply_symplecto(x, y)
+
+        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
+        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
+        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
+        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+
+        return J_a, J_b, J_c, J_d
+
     def get_metric_tensor(self, x, y):
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        T = self.apply_symplecto(x, y)
-
-        J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(T[1].sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
 
         fac = (J_a * J_d - J_b * J_c) ** 2
         A_a = (J_d**2 + J_b**2) / fac
@@ -267,12 +275,7 @@ class Geo_Net:
         return A_a, A_b, A_c, A_d
 
     def get_dn_u(self, x, y):
-        xT, yT = self.apply_symplecto(x, y)
-
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
 
         det = J_a * J_d - J_b * J_c
         a, b, c, d = det * J_d, -det * J_c, -det * J_b, det * J_a
@@ -285,29 +288,22 @@ class Geo_Net:
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
 
-        nx, ny = self.get_n(x, y)
+        return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-        return Jt_dx_u * nx + Jt_dy_u * ny, nx, ny
-
-    def get_n(self, x, y):
-        tx, ty = -y, x
-
+    def get_optimality_condition(self):
+        n = 10_000
+        theta = torch.linspace(
+            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
+        )[:, None]
+        x = self.rho_max * torch.cos(theta)
+        y = self.rho_max * torch.sin(theta)
         xT, yT = self.apply_symplecto(x, y)
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-        txT, tyT = J_a * tx + J_b * ty, J_c * tx + J_d * ty
-        nxT, nyT = tyT, -txT
-        normT = torch.sqrt(nxT**2 + nyT**2)
-        nxT, nyT = nxT / normT, nyT / normT
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
+        d_sigma = torch.sqrt((J_b * x - J_a * y) ** 2 + (J_d * x - J_c * y) ** 2)
+        dn_u = self.get_dn_u(x, y)
 
-        return nxT, nyT
-
-    def get_avg_dn_u(self, x, y, n):
-        dn_u, _, _ = self.get_dn_u(x, y)
-        avg_dn_u = dn_u.sum() / n
-        return avg_dn_u
+        avg_dn_u = (dn_u * d_sigma).sum() / n
+        return torch.abs(avg_dn_u - dn_u), xT, yT
 
     def left_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -354,8 +350,8 @@ class Geo_Net:
             self.rho_min,
             self.rho_max,
             name=self.boundary_condition,
-            xT = xT,
-            yT = yT,
+            xT=xT,
+            yT=yT,
             a=self.a,
             b=self.b,
         )
@@ -388,22 +384,19 @@ class Geo_Net:
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
         self.y_collocation = rho_collocation * torch.sin(theta_collocation)
-        
-        self.x_collocation, self.y_collocation = (
-            self.apply_rejet_kompact(
-                self.x_collocation, self.y_collocation
-            )
+
+        self.x_collocation, self.y_collocation = self.apply_rejet_kompact(
+            self.x_collocation, self.y_collocation
         )
-        
+
     def make_border_collocation(self, n_collocation):
         shape = (n_collocation, 1)
-        
+
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
         self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
         self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
-
 
     def get_mes_border(self):
         n = 10_000
@@ -427,6 +420,7 @@ class Geo_Net:
         n_collocation = kwargs.get("n_collocation", 10_000)
 
         plot_history = kwargs.get("plot_history", False)
+        save_plots = kwargs.get("save_plots", False)
 
         # trucs de sauvegarde ?
         try:
@@ -523,7 +517,7 @@ class Geo_Net:
             pass
 
         if plot_history:
-            self.plot_result(epoch)
+            self.plot_result(save_plots)
 
         return tps2 - tps1
 
@@ -531,101 +525,113 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, derivative=False, random=False):
-        import matplotlib.pyplot as plt
+    def plot_result(self, save_plots):
 
-        fig, ax = plt.subplots(2, 2, figsize=[12.8, 9.6])
+        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        ax[0, 0].plot(self.loss_history)
-        ax[0, 0].set_yscale("symlog", linthresh=1e-4)
-        ax[0, 0].set_title("loss history")
-
-        n_visu = 50_000
-        n_visu_border = 10_000
-        self.make_collocation(n_visu)
-        self.make_border_collocation(n_visu_border)
-
-        xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        xT_gamma, yT_gamma = self.apply_symplecto(
-            self.x_gamma_collocation, self.y_gamma_collocation
+        makePlots.edp_contour_bernoulli(
+            self.rho_max,
+            self.a,
+            self.b,
+            self.get_u,
+            lambda x, y: self.apply_symplecto(x, y),
+            lambda x, y: self.apply_inverse_symplecto(x, y),
+            save_plots,
+            self.fig_storage,
         )
 
-        xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
-        dn_u_pred, _, _ = self.get_dn_u(
-            self.x_gamma_collocation, self.y_gamma_collocation
+        makePlots.optimality_condition(
+            self.get_optimality_condition,
+            save_plots,
+            self.fig_storage,
         )
-        avg_dn_u = self.get_avg_dn_u(self.x_gamma_collocation, self.y_gamma_collocation, n_visu_border)
 
-        condition_optimalite = (dn_u_pred - avg_dn_u)**2
-        CD_OPTIM = condition_optimalite.sum()/n_visu_border
+        # import matplotlib.pyplot as plt
 
-        x, y = (
-            self.x_collocation.detach().cpu(),
-            self.y_collocation.detach().cpu(),
-        )
-        xT, yT = xT.detach().cpu(), yT.detach().cpu()
-        xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
-        xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
+        # fig, ax = plt.subplots(2, 2, figsize=[12.8, 9.6])
 
-        im = ax[0, 1].scatter(
-            xT,
-            yT,
-            s=1,
-            c=u_pred,
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax[0, 1])
-        ax[0, 1].set_title("$u_{pred}$")
-        ax[0, 1].set_aspect("equal")
+        # ax[0, 0].plot(self.loss_history)
+        # ax[0, 0].set_yscale("symlog", linthresh=1e-4)
+        # ax[0, 0].set_title("loss history")
 
-        im = ax[1,0].scatter(
-            x,
-            y,
-            s=1,
-        )
-        ax[1,0].set_title("$C$ privé de $T^{-1}E$")
-        ax[1,0].set_aspect("equal")
+        # n_visu = 50_000
+        # n_visu_border = 10_000
+        # self.make_collocation(n_visu)
+        # self.make_border_collocation(n_visu_border)
 
-        im = ax[1, 1].scatter(
-            xT_gamma,
-            yT_gamma,
-            s=1,
-            c=condition_optimalite.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
-        ax[1, 1].set_aspect("equal")
+        # xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
 
-        print("Dirichlet energy", self.loss.item())
-        print("Condition d'optimalité", CD_OPTIM.item())
+        # xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
+        # u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
 
-        plt.show()
+        # condition_optimalite, xT_gamma, yT_gamma = self.get_optimality_condition()
+        # CD_OPTIM = condition_optimalite.sum() / n_visu_border
 
+        # x, y = (
+        #     self.x_collocation.detach().cpu(),
+        #     self.y_collocation.detach().cpu(),
+        # )
+        # xT, yT = xT.detach().cpu(), yT.detach().cpu()
+        # xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+        # xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
 
-        fig, ax = plt.subplots()
-        im = ax.scatter(
-            xT,
-            yT,
-            s=1,
-            c=u_pred,
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax)
-        ax.set_title("$u_{pred}$")
-        ax.set_aspect("equal")
-        plt.show()
+        # im = ax[0, 1].scatter(
+        #     xT,
+        #     yT,
+        #     s=1,
+        #     c=u_pred,
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax[0, 1])
+        # ax[0, 1].set_title("$u_{pred}$")
+        # ax[0, 1].set_aspect("equal")
 
-        fig, ax = plt.subplots()
-        im = ax.scatter(
-            xT_gamma,
-            yT_gamma,
-            s=1,
-            c=condition_optimalite.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax)
-        ax.set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
-        ax.set_aspect("equal")
-        plt.show()
+        # im = ax[1, 0].scatter(
+        #     x,
+        #     y,
+        #     s=1,
+        # )
+        # ax[1, 0].set_title("$C$ privé de $T^{-1}E$")
+        # ax[1, 0].set_aspect("equal")
+
+        # im = ax[1, 1].scatter(
+        #     xT_gamma,
+        #     yT_gamma,
+        #     s=1,
+        #     c=condition_optimalite.detach().cpu(),
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax[1, 1])
+        # ax[1, 1].set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
+        # ax[1, 1].set_aspect("equal")
+
+        # print("Dirichlet energy", self.loss.item())
+        # print("Condition d'optimalité", CD_OPTIM.item())
+
+        # plt.show()
+
+        # fig, ax = plt.subplots()
+        # im = ax.scatter(
+        #     xT,
+        #     yT,
+        #     s=1,
+        #     c=u_pred,
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax)
+        # ax.set_title("$u_{pred}$")
+        # ax.set_aspect("equal")
+        # plt.show()
+
+        # fig, ax = plt.subplots()
+        # im = ax.scatter(
+        #     xT_gamma,
+        #     yT_gamma,
+        #     s=1,
+        #     c=condition_optimalite.detach().cpu(),
+        #     cmap="gist_ncar",
+        # )
+        # fig.colorbar(im, ax=ax)
+        # ax.set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
+        # ax.set_aspect("equal")
+        # plt.show()

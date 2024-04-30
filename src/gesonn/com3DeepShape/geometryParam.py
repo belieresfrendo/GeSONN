@@ -261,16 +261,21 @@ class Geo_Net:
             file_name,
         )
 
+    def get_jacobian_matrix(self, x, y, mu):
+        xT, yT = self.apply_symplecto(x, y, mu)
+
+        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
+        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
+        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
+        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+
+        return J_a, J_b, J_c, J_d
+
     def get_metric_tensor(self, x, y, mu):
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        T = self.apply_symplecto(x, y, mu)
-
-        J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(T[1].sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y, mu)
 
         fac = (J_a * J_d - J_b * J_c) ** 2
         A_a = (J_d**2 + J_b**2) / fac
@@ -281,12 +286,7 @@ class Geo_Net:
         return A_a, A_b, A_c, A_d
 
     def get_dn_u(self, x, y, mu):
-        xT, yT = self.apply_symplecto(x, y, mu)
-
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y, mu)
 
         det = J_a * J_d - J_b * J_c
         a, b, c, d = det * J_d, -det * J_c, -det * J_b, det * J_a
@@ -299,29 +299,26 @@ class Geo_Net:
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
 
-        nx, ny = self.get_n(x, y, mu)
+        return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-        return Jt_dx_u * nx + Jt_dy_u * ny, nx, ny
-
-    def get_n(self, x, y, mu):
-        tx, ty = -y, x
-
+    def get_optimality_condition(self, mu):
+        """
+        Be carefull : mu is a scalar
+        """
+        n = 10_000
+        theta = torch.linspace(
+            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
+        )[:, None]
+        x = self.rho_max * torch.cos(theta)
+        y = self.rho_max * torch.sin(theta)
+        mu = mu * torch.ones_like(x)
         xT, yT = self.apply_symplecto(x, y, mu)
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-        txT, tyT = J_a * tx + J_b * ty, J_c * tx + J_d * ty
-        nxT, nyT = tyT, -txT
-        normT = torch.sqrt(nxT**2 + nyT**2)
-        nxT, nyT = nxT / normT, nyT / normT
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y, mu)
+        d_sigma = torch.sqrt((J_b * x - J_a * y) ** 2 + (J_d * x - J_c * y) ** 2)
+        dn_u = self.get_dn_u(x, y, mu)
 
-        return nxT, nyT
-
-    def get_avg_dn_u(self, x, y, n_colloc, mu):
-        dn_u, _, _ = self.get_dn_u(x, y, mu)
-        avg_dn_u = dn_u.sum() / n_colloc
-        return avg_dn_u
+        avg_dn_u = (dn_u * d_sigma).sum() / n
+        return torch.abs(avg_dn_u - dn_u), xT, yT
 
     def left_hand_term(self, x, y, mu):
         u = self.get_u(x, y, mu)
@@ -344,6 +341,12 @@ class Geo_Net:
             name=self.source_term,
         )
         return f * u
+
+    def apply_inverse_symplecto(self, x, y, mu):
+        for i in range(self.nb_of_networks):
+            y = y - self.down_nets[self.nb_of_networks - 1 - i](x, mu)
+            x = x - self.up_nets[self.nb_of_networks - 1 - i](y, mu)
+        return x, y
 
     def apply_symplecto(self, x, y, mu):
         for i in range(self.nb_of_networks):
@@ -536,208 +539,31 @@ class Geo_Net:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_visu = 50_000
-        self.make_collocation(n_visu)
-        x_border = self.rho_max * torch.cos(self.theta_collocation)
-        y_border = self.rho_max * torch.sin(self.theta_collocation)
-        self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
-        w1 = torch.rand(1, device=device)
-        mu_visu_1 = (w1*self.mu_min + (1-w1)*self.mu_max) * self.ones
-        w2 = torch.rand(1, device=device)
-        mu_visu_2 = (w2*self.mu_min + (1-w2)*self.mu_max) * self.ones
-        w3 = torch.rand(1, device=device)
-        mu_visu_3 = (w3*self.mu_min + (1-w3)*self.mu_max) * self.ones
-        w4 = torch.rand(1, device=device)
-        mu_visu_4 = (w4*self.mu_min + (1-w4)*self.mu_max) * self.ones
-        w5 = torch.rand(1, device=device)
-        mu_visu_5 = (w5*self.mu_min + (1-w5)*self.mu_max) * self.ones
-
-
-        xT_1, yT_1 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1)
-        u_pred_1 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_1)
-        xT_2, yT_2 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2)
-        u_pred_2 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_2)
-        xT_3, yT_3 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3)
-        u_pred_3 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_3)
-        xT_4, yT_4 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4)
-        u_pred_4 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_4)
-        xT_5, yT_5 = self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5)
-        u_pred_5 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_5)
-
-
-        xT_border_1, yT_border_1 = self.apply_symplecto(x_border, y_border, mu_visu_1)
-        xT_border_2, yT_border_2 = self.apply_symplecto(x_border, y_border, mu_visu_2)
-        xT_border_3, yT_border_3 = self.apply_symplecto(x_border, y_border, mu_visu_3)
-        xT_border_4, yT_border_4 = self.apply_symplecto(x_border, y_border, mu_visu_4)
-        xT_border_5, yT_border_5 = self.apply_symplecto(x_border, y_border, mu_visu_5)
-        
-        dn_u_1, _, _ = self.get_dn_u(x_border, y_border, mu_visu_1)
-        dn_u_2, _, _ = self.get_dn_u(x_border, y_border, mu_visu_2)
-        dn_u_3, _, _ = self.get_dn_u(x_border, y_border, mu_visu_3)
-        dn_u_4, _, _ = self.get_dn_u(x_border, y_border, mu_visu_4)
-        dn_u_5, _, _ = self.get_dn_u(x_border, y_border, mu_visu_5)
-
-
-        # makePlots.edp(
-        #     xT_border.detach().cpu(),
-        #     yT_border.detach().cpu(),
-        #     dn_u.detach().cpu(),
-        #     "gradient normal",
-        # )
-        makePlots.edp(
-            xT_1.detach().cpu(),
-            yT_1.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_1),
-                mu=mu_visu_1,
-                name=self.source_term
-            ).detach().cpu(),
-            save_plots,
-            self.fig_storage + "_source_1",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT_1.detach().cpu(),
-            yT_1.detach().cpu(),
-            u_pred_1.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_edp_1",
-            title="$\mu=$"+str(mu_visu_1[0].item())[:4],
-        )
-        makePlots.edp(
-            xT_2.detach().cpu(),
-            yT_2.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_2),
-                mu=mu_visu_2,
-                name=self.source_term
-            ).detach().cpu(),
-            save_plots,
-            self.fig_storage + "_source_2",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT_2.detach().cpu(),
-            yT_2.detach().cpu(),
-            u_pred_2.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_edp_2",
-            title="$\mu=$"+str(mu_visu_2[0].item())[:4],
-        )
-        makePlots.edp(
-            xT_3.detach().cpu(),
-            yT_3.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_3),
-                mu=mu_visu_3,
-                name=self.source_term
-            ).detach().cpu(),
-            save_plots,
-            self.fig_storage + "_source_3",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT_3.detach().cpu(),
-            yT_3.detach().cpu(),
-            u_pred_3.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_edp_3",
-            title="$\mu=$"+str(mu_visu_3[0].item())[:4],
-        )
-        makePlots.edp(
-            xT_4.detach().cpu(),
-            yT_4.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_4),
-                mu=mu_visu_4,
-                name=self.source_term
-            ).detach().cpu(),
-            save_plots,
-            self.fig_storage + "_source_4",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT_4.detach().cpu(),
-            yT_4.detach().cpu(),
-            u_pred_4.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_edp_4",
-            title="$\mu=$"+str(mu_visu_4[0].item())[:4],
-        )
-        makePlots.edp(
-            xT_5.detach().cpu(),
-            yT_5.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation, mu_visu_5),
-                mu=mu_visu_5,
-                name=self.source_term
-            ).detach().cpu(),
-            save_plots,
-            self.fig_storage + "_source_5",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT_5.detach().cpu(),
-            yT_5.detach().cpu(),
-            u_pred_5.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_edp_5",
-            title="$\mu=$"+str(mu_visu_5[0].item())[:4],
-        )
-
-        makePlots.param_shape(
-            xT_border_1.detach().cpu(), yT_border_1.detach().cpu(),
-            xT_border_2.detach().cpu(), yT_border_2.detach().cpu(),
-            xT_border_3.detach().cpu(), yT_border_3.detach().cpu(),
-            xT_border_4.detach().cpu(), yT_border_4.detach().cpu(),
-            xT_border_5.detach().cpu(), yT_border_5.detach().cpu(),
+        makePlots.edp_contour_param_source(
+            self.rho_min,
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            self.get_u,
+            lambda x, y, mu: self.apply_symplecto(x, y, mu),
+            lambda x, y, mu: self.apply_inverse_symplecto(x, y, mu),
             save_plots,
             self.fig_storage,
-            title="superposition of learned shapes",
         )
 
-        import matplotlib.pyplot as plt
-        from matplotlib import rc
-        rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
-        rc("text", usetex=True)       
+        # makePlots.param_shape_superposition(
+        #     self.rho_max,
+        #     self.mu_min,
+        #     self.mu_max,
+        #     lambda x, y, mu: self.apply_symplecto(x, y, mu),
+        #     save_plots,
+        #     self.fig_storage,
+        # )
 
-        fig, ax = plt.subplots()#figsize=(7.5,5)
-        im = ax.scatter(
-            xT_border_1.detach().cpu(),
-            yT_border_1.detach().cpu(),
-            s=1,
-            c=dn_u_1.detach().cpu(),
-            cmap="gist_ncar",
+        makePlots.optimality_condition_param(
+            self.mu_min,
+            self.mu_max,
+            self.get_optimality_condition,
+            save_plots,
+            self.fig_storage,
         )
-        im = ax.scatter(
-            xT_border_2.detach().cpu(),
-            yT_border_2.detach().cpu(),
-            s=1,
-            c=dn_u_2.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        im = ax.scatter(
-            xT_border_3.detach().cpu(),
-            yT_border_3.detach().cpu(),
-            s=1,
-            c=dn_u_3.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        im = ax.scatter(
-            xT_border_4.detach().cpu(),
-            yT_border_4.detach().cpu(),
-            s=1,
-            c=dn_u_4.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        im = ax.scatter(
-            xT_border_5.detach().cpu(),
-            yT_border_5.detach().cpu(),
-            s=1,
-            c=dn_u_5.detach().cpu(),
-            cmap="gist_ncar",
-        )
-        fig.colorbar(im, ax=ax)
-        ax.set_title("Optimality conditions")
-        plt.show()
-

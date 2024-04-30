@@ -62,14 +62,10 @@ class Symp_Net_Forward(nn.DataParallel):
             + (max_value - min_value)
             * torch.rand(size, dtype=torch.double, device=device)
         )
-        # self.k_eff = torch.nn.parameter.Parameter(
-        #     min_value
-        #     + (max_value - min_value)
-        #     * torch.rand(size, dtype=torch.double, device=device)
-        # )
         self.a = torch.nn.parameter.Parameter(
             min_value
-            + (max_value - min_value) * torch.rand(size, dtype=torch.double, device=device)
+            + (max_value - min_value)
+            * torch.rand(size, dtype=torch.double, device=device)
         )
         self.b = torch.nn.parameter.Parameter(
             min_value
@@ -86,9 +82,7 @@ class Symp_Net_Forward(nn.DataParallel):
         A = torch.einsum("ik,jk->ijk", self.a, ones)
         Kmu = torch.einsum("ik,jk->ijk", self.k_mu, mu)
         Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
-        # sigma = torch.tanh(Kx_or_y + B + Kmu)
         return torch.einsum("ik,ijk->jk", self.k, Asigma)
-        # return torch.einsum("ik,ijk->jk", self.k_eff, sigma)
 
 
 # ----------------------------------------------------------------------
@@ -449,158 +443,23 @@ class Symp_Net:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_shape = 10_000
-        self.make_collocation(n_shape)
-        self.ones = torch.ones((n_shape, 1), requires_grad=True, device=device)
-        w1 = torch.rand(1, device=device)
-        mu_visu_1 = (w1 * self.mu_min + (1 - w1) * self.mu_max) * self.ones
-        w2 = torch.rand(1, device=device)
-        mu_visu_2 = (w2 * self.mu_min + (1 - w2) * self.mu_max) * self.ones
-        w3 = torch.rand(1, device=device)
-        mu_visu_3 = (w3 * self.mu_min + (1 - w3) * self.mu_max) * self.ones
-        w4 = torch.rand(1, device=device)
-        mu_visu_4 = (w4 * self.mu_min + (1 - w4) * self.mu_max) * self.ones
-        w5 = torch.rand(1, device=device)
-        mu_visu_5 = (w5 * self.mu_min + (1 - w5) * self.mu_max) * self.ones
-
-        x_ex_1, y_ex_1 = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            mu=mu_visu_1,
-            name=self.name_symplecto,
-        )
-        x_net_1, y_net_1 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu_1
-        )
-        x_ex_2, y_ex_2 = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            mu=mu_visu_2,
-            name=self.name_symplecto,
-        )
-        x_net_2, y_net_2 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu_2
-        )
-        x_ex_3, y_ex_3 = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            mu=mu_visu_3,
-            name=self.name_symplecto,
-        )
-        x_net_3, y_net_3 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu_3
-        )
-        x_ex_4, y_ex_4 = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            mu=mu_visu_4,
-            name=self.name_symplecto,
-        )
-        x_net_4, y_net_4 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu_4
-        )
-        x_ex_5, y_ex_5 = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            mu=mu_visu_5,
-            name=self.name_symplecto,
-        )
-        x_net_5, y_net_5 = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu_visu_5
+        makePlots.param_shape_error(
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            lambda x, y, mu: self.apply_symplecto(x, y, mu),
+            lambda x, y, mu: metricTensors.apply_symplecto(
+                x, y, mu, name=self.name_symplecto
+            ),
+            save_plots,
+            self.fig_storage,
         )
 
-        makePlots.shape(
-            x_net_1.detach().cpu(),
-            y_net_1.detach().cpu(),
+        makePlots.param_shape_superposition(
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            lambda x, y, mu: self.apply_symplecto(x, y, mu),
             save_plots,
-            self.fig_storage + "_1",
-        )
-        makePlots.shape_error(
-            x_net_1.detach().cpu(),
-            y_net_1.detach().cpu(),
-            x_ex_1.detach().cpu(),
-            y_ex_1.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_1",
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
-            + str(mu_visu_1[0].item()),
-        )
-        makePlots.shape(
-            x_net_2.detach().cpu(),
-            y_net_2.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_2",
-        )
-        makePlots.shape_error(
-            x_net_2.detach().cpu(),
-            y_net_2.detach().cpu(),
-            x_ex_2.detach().cpu(),
-            y_ex_2.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_2",
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
-            + str(mu_visu_2[0].item()),
-        )
-        makePlots.shape(
-            x_net_3.detach().cpu(),
-            y_net_3.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_3",
-        )
-        makePlots.shape_error(
-            x_net_3.detach().cpu(),
-            y_net_3.detach().cpu(),
-            x_ex_3.detach().cpu(),
-            y_ex_3.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_3",
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
-            + str(mu_visu_3[0].item()),
-        )
-        makePlots.shape(
-            x_net_4.detach().cpu(),
-            y_net_4.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_4",
-        )
-        makePlots.shape_error(
-            x_net_4.detach().cpu(),
-            y_net_4.detach().cpu(),
-            x_ex_4.detach().cpu(),
-            y_ex_4.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_4",
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
-            + str(mu_visu_4[0].item()),
-        )
-        makePlots.shape(
-            x_net_5.detach().cpu(),
-            y_net_5.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_5",
-        )
-        makePlots.shape_error(
-            x_net_5.detach().cpu(),
-            y_net_5.detach().cpu(),
-            x_ex_5.detach().cpu(),
-            y_ex_5.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_5",
-            title=f"Hausdorff error: {self.get_hausdorff_error():5.2e}, $\mu=$"
-            + str(mu_visu_5[0].item()),
-        )
-        makePlots.param_shape(
-            x_net_1.detach().cpu(),
-            y_net_1.detach().cpu(),
-            x_net_2.detach().cpu(),
-            y_net_2.detach().cpu(),
-            x_net_3.detach().cpu(),
-            y_net_3.detach().cpu(),
-            x_net_4.detach().cpu(),
-            y_net_4.detach().cpu(),
-            x_net_5.detach().cpu(),
-            y_net_5.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_5",
-            title="superposition of learned shapes",
+            self.fig_storage,
         )

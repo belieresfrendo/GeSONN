@@ -242,6 +242,7 @@ class PINNs:
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
         return A_grad_u_grad_u
+    
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -253,6 +254,26 @@ class PINNs:
         )
 
         return f * u
+
+    def get_residual(self, x, y):
+        u = self.get_u(x, y)
+        a, b, c, d = self.get_metric_tensor(x, y)
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        A_grad_u_x = a * dx_u + b * dy_u
+        A_grad_u_y = c * dx_u + d * dy_u
+
+        dx_A_grad_u_x = torch.autograd.grad(A_grad_u_x.sum(), x, create_graph=True)[0]
+        dy_A_grad_u_y = torch.autograd.grad(A_grad_u_y.sum(), y, create_graph=True)[0]
+
+        f = sourceTerms.get_f(
+            *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            name=self.source_term,
+        )
+
+        res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
+
+        return res * (res<0.1)
 
     def get_u(self, x, y):
         return bc.apply_BC(
@@ -375,52 +396,22 @@ class PINNs:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_visu = 50_000
-        self.make_collocation(n_visu)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation)
-        xT, yT = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            name=self.name_symplecto,
-        )
-
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred.detach().cpu(),
-            save_plots,
-            self.fig_storage,
-            title="Solution de l'EDP tensorisée",
-        )
-
         makePlots.edp_contour(
             self.rho_min,
             self.rho_max,
             self.get_u,
             lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
             lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+            save_plots,
+            self.fig_storage,
         )
 
-
-if __name__ == "__main__":
-    PINNsDict = {}
-
-    epochs = 1000
-    n_collocation = 10_000
-    new_training = True
-
-    try:
-        os.remove("./../../../outputs/PINNs/net/poisson_default.pth")
-    except FileNotFoundError:
-        pass
-
-    network = PINNs(PINNsDict=PINNsDict)
-
-    if device.type == "cpu":
-        tps = network.train(
-            epochs=epochs, n_collocation=n_collocation, plot_history=True
+        makePlots.edp_contour(
+            self.rho_min,
+            self.rho_max,
+            self.get_residual,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+            save_plots,
+            self.fig_storage + "_residual",
         )
-    else:
-        network.train(epochs=epochs, n_collocation=n_collocation, plot_history=True)
-
-    print(f"Computational time: {str(tps)[:4]} sec.")

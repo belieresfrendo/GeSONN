@@ -19,23 +19,23 @@ if __name__ == "__main__":
     # train = False
 
     deepGeoDict = {
-        "pde_learning_rate": 1e-2,
-        "sympnet_learning_rate": 1e-2,
+        "pde_learning_rate": 1e-3,
+        "sympnet_learning_rate": 1e-3,
         "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
-        "nb_of_networks": 10,
-        "networks_size": 10,
+        "nb_of_networks": 4,
+        "networks_size": 5,
         "rho_min": 0,
         "rho_max": 1,
         "file_name": "default",
         "to_be_trained": True,
-        "source_term": "sin",
+        "source_term": "exp",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 1000
+    epochs = 200
     n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

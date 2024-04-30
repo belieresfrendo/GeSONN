@@ -263,6 +263,25 @@ class PINNs:
 
         return f * u
 
+    # def get_residual(self, x, y, mu):
+    #     u = self.get_u(x, y, mu)
+    #     a, b, c, d = self.get_metric_tensor(x, y)
+    #     dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+    #     dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+    #     A_grad_u_x = a * dx_u + b * dy_u
+    #     A_grad_u_y = c * dx_u + d * dy_u
+
+    #     dx_A_grad_u_x = torch.autograd.grad(A_grad_u_x.sum(), x, create_graph=True)[0]
+    #     dy_A_grad_u_y = torch.autograd.grad(A_grad_u_y.sum(), y, create_graph=True)[0]
+
+    #     f = sourceTerms.get_f(
+    #         *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+    #         mu=mu,
+    #         name=self.source_term,
+    #     )
+
+    #     return torch.log(dx_A_grad_u_x + dy_A_grad_u_y + f)
+
     def get_u(self, x, y, mu):
         return bc.apply_BC(
             self.u_net(
@@ -389,62 +408,26 @@ class PINNs:
     def plot_result(self, save_plots):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_visu = 50_000
-        self.make_collocation(n_visu)
-        self.ones = torch.ones((n_visu, 1), requires_grad=True, device=device)
-        mu_visu_1 = (self.mu_min) * self.ones
-        mu_visu_2 = (0.75 * self.mu_min + 0.25 * self.mu_max) * self.ones
-        mu_visu_3 = 0.5 * (self.mu_min + self.mu_max) * self.ones
-        mu_visu_4 = (0.25 * self.mu_min + 0.75 * self.mu_max) * self.ones
-        mu_visu_5 = (self.mu_max) * self.ones
-        u_pred_1 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_1)
-        u_pred_2 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_2)
-        u_pred_3 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_3)
-        u_pred_4 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_4)
-        u_pred_5 = self.get_u(self.x_collocation, self.y_collocation, mu_visu_5)
-        xT, yT = metricTensors.apply_symplecto(
-            self.x_collocation,
-            self.y_collocation,
-            name=self.name_symplecto,
+        makePlots.edp_contour_param(
+            self.rho_min,
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            self.get_u,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+            save_plots,
+            self.fig_storage,
         )
 
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred_1.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_1",
-            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_1[0].item()),
-        )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred_2.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_2",
-            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_2[0].item()),
-        )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred_3.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_3",
-            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_3[0].item()),
-        )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred_4.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_4",
-            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_4[0].item()),
-        )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred_5.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_5",
-            title="Solution de l'EDP tensorisée, $\mu=$" + str(mu_visu_5[0].item()),
-        )
+        # makePlots.edp_contour_param(
+        #     self.rho_min,
+        #     self.rho_max,
+        #     self.mu_min,
+        #     self.mu_max,
+        #     self.get_residual,
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+        #     save_plots,
+        #     self.fig_storage,
+        # )

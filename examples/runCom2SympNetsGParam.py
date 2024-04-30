@@ -30,11 +30,11 @@ if __name__ == "__main__":
         "to_be_trained": True,
     }
 
-    epochs = 50_000
+    epochs = 200
     n_collocation = 10_000
     new_training = False
     new_training = True
-    # save_plots = False
+    save_plots = False
     save_plots = True
 
     # ==============================================================

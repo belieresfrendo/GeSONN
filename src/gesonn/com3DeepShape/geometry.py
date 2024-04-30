@@ -246,16 +246,21 @@ class Geo_Net:
             file_name,
         )
 
+    def get_jacobian_matrix(self, x, y):
+        xT, yT = self.apply_symplecto(x, y)
+
+        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
+        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
+        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
+        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+
+        return J_a, J_b, J_c, J_d
+
     def get_metric_tensor(self, x, y):
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        T = self.apply_symplecto(x, y)
-
-        J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(T[1].sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
 
         fac = (J_a * J_d - J_b * J_c) ** 2
         A_a = (J_d**2 + J_b**2) / fac
@@ -266,12 +271,7 @@ class Geo_Net:
         return A_a, A_b, A_c, A_d
 
     def get_dn_u(self, x, y):
-        xT, yT = self.apply_symplecto(x, y)
-
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
 
         det = J_a * J_d - J_b * J_c
         a, b, c, d = det * J_d, -det * J_c, -det * J_b, det * J_a
@@ -284,29 +284,22 @@ class Geo_Net:
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
 
-        nx, ny = self.get_n(x, y)
+        return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-        return Jt_dx_u * nx + Jt_dy_u * ny, nx, ny
-
-    def get_n(self, x, y):
-        tx, ty = -y, x
-
+    def get_optimality_condition(self):
+        n = 10_000
+        theta = torch.linspace(
+            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
+        )[:, None]
+        x = self.rho_max * torch.cos(theta)
+        y = self.rho_max * torch.sin(theta)
         xT, yT = self.apply_symplecto(x, y)
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-        txT, tyT = J_a * tx + J_b * ty, J_c * tx + J_d * ty
-        nxT, nyT = tyT, -txT
-        normT = torch.sqrt(nxT**2 + nyT**2)
-        nxT, nyT = nxT / normT, nyT / normT
+        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
+        d_sigma = torch.sqrt((J_b * x - J_a * y) ** 2 + (J_d * x - J_c * y) ** 2)
+        dn_u = self.get_dn_u(x, y)
 
-        return nxT, nyT
-
-    def get_avg_dn_u(self, x, y, n):
-        dn_u, _, _ = self.get_dn_u(x, y)
-        avg_dn_u = dn_u.sum() / n
-        return avg_dn_u
+        avg_dn_u = (dn_u * d_sigma).sum() / n
+        return torch.abs(avg_dn_u - dn_u), xT, yT
 
     def left_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -332,6 +325,12 @@ class Geo_Net:
         for i in range(self.nb_of_networks):
             x, y = x + self.up_nets[i](y), y
             x, y = x, y + self.down_nets[i](x)
+        return x, y
+
+    def apply_inverse_symplecto(self, x, y):
+        for i in range(self.nb_of_networks):
+            y = y - self.down_nets[self.nb_of_networks - 1 - i](x)
+            x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
         return x, y
 
     def get_u(self, x, y):
@@ -496,43 +495,18 @@ class Geo_Net:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        n_visu = 50_000
-        self.make_collocation(n_visu)
-
-        xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-        u_pred = self.get_u(self.x_collocation, self.y_collocation)
-
-        x_border = self.rho_max * torch.cos(self.theta_collocation)
-        y_border = self.rho_max * torch.sin(self.theta_collocation)
-        xT_border, yT_border = self.apply_symplecto(x_border, y_border)
-        dn_u, _, _ = self.get_dn_u(x_border, y_border)
-
-        makePlots.edp(
-            xT_border.detach().cpu(),
-            yT_border.detach().cpu(),
-            dn_u.detach().cpu(),
+        makePlots.edp_contour(
+            self.rho_min,
+            self.rho_max,
+            self.get_u,
+            lambda x, y: self.apply_symplecto(x, y),
+            lambda x, y: self.apply_inverse_symplecto(x, y),
             save_plots,
-            self.fig_storage + "_gradn",
-            title="Optimality condition",
+            self.fig_storage,
         )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            sourceTerms.get_f(
-                *self.apply_symplecto(self.x_collocation, self.y_collocation),
-                name=self.source_term,
-            )
-            .detach()
-            .cpu(),
+
+        makePlots.optimality_condition(
+            self.get_optimality_condition,
             save_plots,
-            self.fig_storage + "_source",
-            title="terme source",
-        )
-        makePlots.edp(
-            xT.detach().cpu(),
-            yT.detach().cpu(),
-            u_pred.detach().cpu(),
-            save_plots,
-            self.fig_storage + "_pde",
-            title="EDP",
+            self.fig_storage,
         )
