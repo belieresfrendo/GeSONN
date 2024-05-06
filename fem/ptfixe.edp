@@ -21,13 +21,13 @@ macro grad(A) [dx(A), dy(A)]
 //  Variables declaration
 //////////////////////////////////////////////////////////
 
-real M = 1.e2;
-int niter = 50;
+real M = 1.e3;
+int niter = 200;
 real epsLbd = 1e-8;
 real epsA = 1e-14;
 real umin = 0;
-int nx = 100, ny=100;
-real xmin = -2 , xmax = 2, ymin = -1, ymax = 1;
+int nx = 500, ny=500;
+real xmin = -2 , xmax = 2, ymin = -2, ymax = 2;
 
 //////////////////////////////////////////////////////////
 //  Meshes declaration
@@ -52,7 +52,9 @@ f,
 // |ua|
 uabs,
 // u à l'iteration k-1
-uprev;
+uprev,
+// gradient normal
+dnu;
 
 // approx par EF P0 de L infini
 fespace Linf( Dh, P0 );
@@ -81,9 +83,9 @@ problem RelaxedPoisson( ua, v )=
 
 // terme source
 // f = 0.2 * cos( x ) * sin ( y ) + 0.3 * sin( 2 * x ) * cos( 2 * y );
-// f = 1;
+f = 1;
 // f = sin( 2 * x ) * cos( 3 * y);
-f = exp(1 - (x *0.5) * (x * 0.5) - (2 * y) * (2 * y));
+// f = exp(1 - (x *0.5) * (x * 0.5) - (2 * y) * (2 * y));
 
 // indicatrice
 a = ( sqrt( x * x + y * y) <= 1. );
@@ -277,14 +279,21 @@ plot(
     wait=true
 );
 
-aprev = (sqrt( x * x * 0.5 * 0.5 + y * y * 2 * 2 ) <= 1.);
-avisu = a - aprev;
+real tolGRADnormal = 1e-2;
+
+dnu = sqrt((dx(ua)*dx(ua)+dy(ua)*dy(ua))*( uabs( x, y) < lambdaTildek + tolGRADnormal) * ( uabs( x, y) > lambdaTildek - tolGRADnormal));
+
+real dnuAVG = int2d(Dh)(dnu) / int2d(Dh)((uabs( x, y) < lambdaTildek + tolGRADnormal) * ( uabs( x, y) > lambdaTildek - tolGRADnormal));
+cout << "moyenne du gradient normal sur le bord : " << dnuAVG << endl;
+
 
 plot(
-    avisu,
+    dnu,
     fill=true,
+    value=true,
     wait=true
 );
+
 
 {
     real npts = 200;

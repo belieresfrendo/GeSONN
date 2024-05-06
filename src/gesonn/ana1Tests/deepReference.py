@@ -25,15 +25,21 @@ def main_reference_test(testsDict):
         simuDict = testsDict[simu_name]
 
         # Chargement de la solution FreeFem++
-        fem_path = "./shape_references/ff_" + simu_name + ".csv"
-        if os.path.isfile(fem_path):
-            dict = pd.read_csv(fem_path, delimiter=";")
+        a_fem_path = "./shape_references/ff_" + simu_name + ".csv"
+        u_fem_path = "./optimal_edp/ff_edp_" + simu_name + ".csv"
+        if os.path.isfile(a_fem_path):
+            a_dict = pd.read_csv(a_fem_path, delimiter=";")
+        else:
+            raise FileNotFoundError("Could not find fem solution storage file")
+        if os.path.isfile(u_fem_path):
+            u_dict = pd.read_csv(u_fem_path, delimiter=";")
         else:
             raise FileNotFoundError("Could not find fem solution storage file")
 
-        X = dict["x"]
-        Y = dict["y"]
-        A_fem = dict["a"]
+        X = a_dict["x"]
+        Y = a_dict["y"]
+        A_fem = a_dict["a"]
+        U_fem = u_dict["u"]
 
         # Chargement de la solution GeSONN
         simuPath = "./../outputs/deepShape/net/" + simuDict["file_name"] + ".pth"
@@ -43,16 +49,18 @@ def main_reference_test(testsDict):
             network = geometry.Geo_Net(deepGeoDict=simuDict)
             if device.type == "cpu":
                 tps = network.train(
-                    epochs=10, n_collocation=10_000, plot_history=False
+                    epochs=10_000, n_collocation=10_000, plot_history=False
                 )
             else:
-                tps = network.train(epochs=25_000, n_collocation=250_000, plot_history=False)
+                tps = network.train(
+                    epochs=25_000, n_collocation=250_000, plot_history=False
+                )
             print(f"Computational time: {str(tps)[:4]} sec.")
         else:
             network = geometry.Geo_Net(deepGeoDict=simuDict)
 
         n_pts = 10_000
-        shape = (n_pts,1)
+        shape = (n_pts, 1)
         network.make_collocation(n_pts)
 
         import scipy.spatial.distance as dist
@@ -72,9 +80,9 @@ def main_reference_test(testsDict):
             network.x_collocation,
             network.y_collocation,
         )
-        if simuDict["source_term"]=="one":
-            xT_net, yT_net = optimalShapes.translate_to_zero(xT_net, yT_net, n_pts, network.Vol)
-            xT_map, yT_map = optimalShapes.translate_to_zero(xT_map, yT_map, 50_000, network.Vol)
+        if simuDict["source_term"] == "one":
+            xT_net, yT_net = optimalShapes.translate_to_zero(xT_net, yT_net, n_pts)
+            xT_map, yT_map = optimalShapes.translate_to_zero(xT_map, yT_map, 50_000)
         XT_net = []
         X_fem = []
         x_fem, y_fem = [], []
@@ -90,31 +98,31 @@ def main_reference_test(testsDict):
                 X_fem.append((x, y))
                 x_fem.append(x)
                 y_fem.append(y)
-            if border_bool == 1 and A_fem[i] == 1 and A_fem[i+1] == 0:
+            if border_bool == 1 and A_fem[i] == 1 and A_fem[i + 1] == 0:
                 x, y = X[i], Y[i]
                 X_fem.append((x, y))
                 x_fem.append(x)
                 y_fem.append(y)
             cpt = cpt + 1
-            if cpt==step:
+            if cpt == step:
                 cpt = 0
                 border_bool = 0
-
-
 
         XT_net = np.array(XT_net)
         X_fem = np.array(X_fem)
 
-        hausdorff_error = max(dist.directed_hausdorff(XT_net, X_fem)[0], dist.directed_hausdorff(X_fem, XT_net)[0])
+        hausdorff_error = max(
+            dist.directed_hausdorff(XT_net, X_fem)[0],
+            dist.directed_hausdorff(X_fem, XT_net)[0],
+        )
         print("Dictance de Hausdorff:", hausdorff_error)
-        makePlots.shape_error(
-            xT_net.detach().cpu(),
-            yT_net.detach().cpu(),
+        makePlots.deep_shape_error(
+            network.rho_max,
+            lambda x, y: network.apply_symplecto(x, y),
             x_fem,
             y_fem,
             True,
             "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
-            title=f"Hausdorff error: {hausdorff_error:5.2e}"
         )
         makePlots.edp_shape_error(
             u_pred.detach().cpu(),
@@ -124,5 +132,69 @@ def main_reference_test(testsDict):
             y_fem,
             True,
             "./../outputs/deepShape/img/" + simuDict["file_name"] + ".pdf",
-            title=f"Hausdorff error: {hausdorff_error:5.2e}"
         )
+
+        # ==================================================================
+        #   EDP
+        # ==================================================================
+
+
+        xT, yT = torch.tensor(X)[:, None], torch.tensor(Y)[:, None]
+        x, y = network.apply_inverse_symplecto(xT, yT)
+        cond = x**2 + y**2 <= network.rho_max**2
+        x, y, xT, yT = x[cond][:, None], y[cond][:, None], xT[cond][:, None], yT[cond][:, None]
+
+        xT_min, xT_max = xT.min().item(), xT.max().item()
+        yT_min, yT_max = yT.min().item(), yT.max().item()
+        lx = xT_max - xT_min
+        ly = yT_max - yT_min
+        xT_max += 0.025 * max(lx, ly)
+        xT_min -= 0.025 * max(lx, ly)
+        yT_max += 0.025 * max(lx, ly)
+        yT_min -= 0.025 * max(lx, ly)
+
+        u_pred = network.get_u(x, y)
+        u_fem = torch.tensor(U_fem)[:, None][cond][:, None]
+        err = torch.log(torch.abs(u_pred - u_fem)) * (x**2 + y**2 < network.rho_max**2)
+
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(3, 1, figsize=(15 * lx / ly, 15 * ly / lx))
+
+        im = ax[0].scatter(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            s=5,
+            c=u_fem.detach().cpu(),
+            cmap="turbo",
+            label="ff++",
+        )
+        fig.colorbar(im, ax=ax[0])
+        ax[0].set_aspect("equal")
+        ax[0].legend()
+
+        im = ax[1].scatter(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            s=5,
+            c=u_pred.detach().cpu(),
+            cmap="turbo",
+            label="gesonn",
+        )
+        fig.colorbar(im, ax=ax[1])
+        ax[1].set_aspect("equal")
+        ax[1].legend()
+
+        im = ax[2].scatter(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            s=5,
+            c=err.detach().cpu(),
+            cmap="turbo",
+            label="error (log)",
+        )
+        fig.colorbar(im, ax=ax[2])
+        ax[2].set_aspect("equal")
+        ax[2].legend()
+
+        plt.show()

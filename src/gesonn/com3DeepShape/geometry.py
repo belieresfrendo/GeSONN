@@ -299,6 +299,7 @@ class Geo_Net:
         dn_u = self.get_dn_u(x, y)
 
         avg_dn_u = (dn_u * d_sigma).sum() / n
+        return dn_u, xT, yT
         return torch.abs(avg_dn_u - dn_u), xT, yT
 
     def left_hand_term(self, x, y):

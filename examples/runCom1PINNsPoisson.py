@@ -16,21 +16,21 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    # train = False
+    train = False
 
     PINNsDict = {
-        "learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
-        "rho_min": 0.3,
+        "learning_rate": 1e-3,
+        "layer_sizes": [2, 10, 20, 100, 20, 10, 1],
+        "rho_min": 0.2,
         "rho_max": 1,
         "file_name": "default",
-        "symplecto_name": "bizaroid",
+        "symplecto_name": "ellipse",
         "to_be_trained": train,
-        "source_term": "ellipse",
+        "source_term": "sin",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 1000
+    epochs = 3000
     n_collocation = 10_000
     new_training = False
     # new_training = True
@@ -69,5 +69,5 @@ if __name__ == "__main__":
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
-        network = poisson.PINNs()
-        network.plot_result(False)
+        network = poisson.PINNs(PINNsDict=PINNsDict)
+        network.plot_result(save_plots)

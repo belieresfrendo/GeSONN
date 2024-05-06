@@ -3,7 +3,7 @@ import os
 import torch
 
 # local imports
-from gesonn.out1Plot import makePlots
+from gesonn.com2SympNets import G
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
@@ -15,8 +15,7 @@ try:
 except ModuleNotFoundError:
     no_torchinfo = True
 
-# local imports
-from gesonn.com2SympNets import G
+
 
 def main_symp_test(testsDict):
     for simu_name in testsDict.keys():
@@ -39,5 +38,4 @@ def main_symp_test(testsDict):
             network = G.Symp_Net(SympNetsDict=simuDict)
 
         network.plot_result(True)
-        hausdorff_error = network.get_hausdorff_error()
-        print("Hausdorff error: ", hausdorff_error)
+        # print(f"Haussdorf distance: {get_hausdorff_distance():3.2e}")

@@ -14,7 +14,7 @@ if __name__ == "__main__":
     circleDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 10, 1],
+        "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
         "nb_of_networks": 2,
         "networks_size": 5,
         "rho_min": 0,
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     expDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 10, 1],
+        "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
         "nb_of_networks": 2,
         "networks_size": 5,
         "rho_min": 0,

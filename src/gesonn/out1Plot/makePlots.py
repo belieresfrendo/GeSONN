@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib import rc
 
+from gesonn.ana1Tests.optimalShapes import translate_to_zero
+
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
 
@@ -112,7 +114,7 @@ def edp_contour_param(
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + mu_max,
+        0.5 * mu_min + 0.5 * mu_max,
         0.25 * mu_min + 0.75 * mu_max,
         mu_max,
     ]
@@ -205,7 +207,7 @@ def edp_contour_param_source(
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + mu_max,
+        0.5 * mu_min + 0.5 * mu_max,
         0.25 * mu_min + 0.75 * mu_max,
         mu_max,
     ]
@@ -384,7 +386,14 @@ def shape(rho_max, apply_symplecto, save_plots, name):
     plt.show()
 
 
-def shape_error(rho_max, apply_symplecto, apply_exact_symplecto, save_plots, name):
+def shape_error(
+    rho_max,
+    apply_symplecto,
+    apply_exact_symplecto,
+    get_hausdorff_distance,
+    save_plots,
+    name,
+):
     import numpy as np
     import torch
 
@@ -419,9 +428,18 @@ def shape_error(rho_max, apply_symplecto, apply_exact_symplecto, save_plots, nam
         plt.savefig(name + "_error.pdf")
     plt.show()
 
+    print(f"Haussdorf distance: {get_hausdorff_distance():3.2e}")
+
 
 def param_shape_error(
-    rho_max, mu_min, mu_max, apply_symplecto, apply_exact_symplecto, save_plots, name
+    rho_max,
+    mu_min,
+    mu_max,
+    apply_symplecto,
+    apply_exact_symplecto,
+    get_hausdorff_distance,
+    save_plots,
+    name,
 ):
 
     import numpy as np
@@ -430,12 +448,13 @@ def param_shape_error(
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + mu_max,
+        0.5 * mu_min + 0.5 * mu_max,
         0.25 * mu_min + 0.75 * mu_max,
         mu_max,
     ]
 
     for mu in mu_list:
+        print(f"mu: {mu:3.2f}")
         # measuring the min and max coordinates of the bounding box
         theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
         x = rho_max * torch.cos(theta)
@@ -459,6 +478,8 @@ def param_shape_error(
 
         plt.show()
 
+        print(f"Haussdorf distance: {get_hausdorff_distance(mu):3.2e}")
+
 
 def param_shape_superposition(
     rho_max, mu_min, mu_max, apply_symplecto, save_plots, name
@@ -469,7 +490,7 @@ def param_shape_superposition(
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + mu_max,
+        0.5 * mu_min + 0.5 * mu_max,
         0.25 * mu_min + 0.75 * mu_max,
         mu_max,
     ]
@@ -544,7 +565,7 @@ def optimality_condition_param(
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + mu_max,
+        0.5 * mu_min + 0.5 * mu_max,
         0.25 * mu_min + 0.75 * mu_max,
         mu_max,
     ]
@@ -579,6 +600,50 @@ def optimality_condition_param(
         plt.savefig(name + "_superposition.pdf")
     plt.show()
 
+
+def deep_shape_error(
+    rho_max,
+    apply_symplecto,
+    xT_ex,
+    yT_ex,
+    save_plots,
+    name,
+):
+    import numpy as np
+    import torch
+
+    n_pts = 1000
+
+    # measuring the min and max coordinates of the bounding box
+    theta = torch.linspace(0, 2 * np.pi, n_pts, dtype=torch.float64)[:, None]
+    x = rho_max * torch.cos(theta)
+    y = rho_max * torch.sin(theta)
+    xT_pred, yT_pred = apply_symplecto(x, y)
+    xT_pred, yT_pred = translate_to_zero(xT_pred, yT_pred, n_pts)
+    xT_min, xT_max = xT_pred.min().item(), xT_pred.max().item()
+    yT_min, yT_max = yT_pred.min().item(), yT_pred.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    ax.scatter(
+        xT_ex,
+        yT_ex,
+        s=25,
+        c="red",
+    )
+    ax.scatter(
+        xT_pred.detach().cpu(),
+        yT_pred.detach().cpu(),
+        s=1,
+        c="green",
+    )
+
+    if save_plots:
+        plt.savefig(name + "_error.pdf")
+    plt.show()
 
 def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
     fig, ax = plt.subplots(figsize=(7.5, 7.5))

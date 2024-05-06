@@ -415,7 +415,7 @@ class Symp_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def get_hausdorff_error(self, n_pts=10_000):
+    def get_hausdorff_distance(self, n_pts=10_000):
 
         import numpy as np
         import scipy.spatial.distance as dist
@@ -457,6 +457,7 @@ class Symp_Net:
             self.rho_max,
             lambda x, y: self.apply_symplecto(x, y),
             lambda x,y : metricTensors.apply_symplecto(x,y,name=self.name_symplecto),
+            lambda : self.get_hausdorff_distance(),
             save_plots,
             self.fig_storage,
         )

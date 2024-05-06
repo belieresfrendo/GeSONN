@@ -11,7 +11,7 @@ print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryPara
 
 if __name__ == "__main__":
     train = True
-    # train = False
+    train = False
 
     # ==============================================================
     # Parameters to be modified freely by the user
@@ -73,3 +73,4 @@ if __name__ == "__main__":
 
     else:
         network = geometryParam.Geo_Net(deepGeoDict=deepGeoDict)
+        network.plot_result(save_plots)

@@ -401,13 +401,17 @@ class Symp_Net:
 
         if plot_history:
             self.plot_result(save_plots)
+        
+        self.get_stats_mu(n=1_000)
+
         return tps2 - tps1
+    
 
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def get_hausdorff_error(self, n_pts=10_000):
+    def get_hausdorff_distance(self, mu, n_pts=10_000):
 
         import scipy.spatial.distance as dist
         import numpy as np
@@ -417,11 +421,11 @@ class Symp_Net:
         x_ex, y_ex = metricTensors.apply_symplecto(
             self.x_collocation,
             self.y_collocation,
-            mu=self.mu_collocation,
+            mu=mu*torch.ones_like(self.x_collocation),
             name=self.name_symplecto,
         )
         x_net, y_net = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, self.mu_collocation
+            self.x_collocation, self.y_collocation, mu*torch.ones_like(self.x_collocation)
         )
 
         X_net = []
@@ -451,6 +455,7 @@ class Symp_Net:
             lambda x, y, mu: metricTensors.apply_symplecto(
                 x, y, mu, name=self.name_symplecto
             ),
+            lambda mu: self.get_hausdorff_distance(mu),
             save_plots,
             self.fig_storage,
         )
@@ -463,3 +468,17 @@ class Symp_Net:
             save_plots,
             self.fig_storage,
         )
+
+    def get_stats_mu(self, n=1_000):
+
+        mus = torch.linspace(self.mu_min, self.mu_max, n)
+        print(mus.size())
+        hausdorff_distances = torch.zeros(n)
+
+        for i in range(n) :
+            hausdorff_distances[i] = self.get_hausdorff_distance(mus[i])
+        
+        print(f"Mean Haussdorf distance: {hausdorff_distances.mean():3.2e}")
+        print(f"Max Haussdorf distance: {hausdorff_distances.max():3.2e}")
+        print(f"Min Haussdorf distance: {hausdorff_distances.min():3.2e}")
+        print(f"Variance Haussdorf distance: {hausdorff_distances.var():3.2e}")

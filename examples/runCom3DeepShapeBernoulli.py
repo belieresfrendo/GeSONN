@@ -21,18 +21,18 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 5e-4,
         "sympnet_learning_rate": 5e-4,
-        "layer_sizes": [2, 10, 20, 80, 20, 10, 1],
-        "nb_of_networks": 2,
-        "networks_size": 5,
+        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 8,
         "rho_min": 0.5,
         "rho_max": 1,
-        "file_name": "bernoulli_7",
+        "file_name": "bernoulli_SIAM",
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
     }
 
-    epochs = 1
+    epochs = 5_000
     n_collocation = 10_000
     new_training = False
     # new_training = True
@@ -72,3 +72,4 @@ if __name__ == "__main__":
 
     else:
         network = bernoulli.Geo_Net(deepGeoDict=deepGeoDict)
+        network.plot_result(save_plots)

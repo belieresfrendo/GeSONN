@@ -18,12 +18,15 @@ def apply_symplecto(x, y, mu=0.5, name=None):
     elif name == "ellipse":
         x = 1 / mu * x + y - y
         y = mu * y + x - x
+    elif name == "inverse_ellipse":
+        y = 1 / mu * y + x - x
+        x = mu * x + y - y
     elif name == "ellipse_benchmark":
         x = 0.5 * x + y - y
         y = 2 * y + x - x
     elif name == "inverse_ellipse_benchmark":
-        x = 2 * x + y - y
         y = 0.5 * y + x - x
-    else:
-        raise ValueError(f"Unknown symplecto name: {name}")
+        x = 2 * x + y - y
+    # else:
+    #     raise ValueError(f"Unknown symplecto name: {name}")
     return x, y

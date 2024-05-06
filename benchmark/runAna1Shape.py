@@ -1,5 +1,4 @@
 # imports
-import os
 import torch
 
 # local imports

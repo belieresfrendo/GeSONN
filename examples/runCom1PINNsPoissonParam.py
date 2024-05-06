@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    # train = False
+    train = False
 
     PINNsDict = {
         "learning_rate": 1e-3,
@@ -71,5 +71,5 @@ if __name__ == "__main__":
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
-        network = poissonParam.PINNs()
-        network.plot_result()
+        network = poissonParam.PINNs(PINNsDict=PINNsDict)
+        network.plot_result(save_plots)
