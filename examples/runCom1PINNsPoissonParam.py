@@ -20,12 +20,12 @@ if __name__ == "__main__":
 
     PINNsDict = {
         "learning_rate": 1e-3,
-        "layer_sizes": [3, 10, 20, 80, 20, 10, 1],
-        "rho_min": 0.2,
+        "layer_sizes": [3, 10, 20, 40, 20, 10, 1],
+        "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 1.5,
-        "file_name": "param",
+        "file_name": "param_SIAM",
         "symplecto_name": "bizaroid",
         "to_be_trained": train,
         "source_term": "ellipse",

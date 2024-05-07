@@ -134,9 +134,9 @@ def edp_contour_param(
         y_max += 0.025 * max(lx, ly)
         y_min -= 0.025 * max(lx, ly)
         # make meshgrid
-        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64, requires_grad=True)
         x_ = torch.tile(x, (n_visu,))[:, None]
-        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64, requires_grad=True)
         y_ = torch.repeat_interleave(y, n_visu)[:, None]
         ones_ = torch.ones_like(x_)
         mu_visu_ = mu * ones_

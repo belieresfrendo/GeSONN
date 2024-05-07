@@ -263,24 +263,25 @@ class PINNs:
 
         return f * u
 
-    # def get_residual(self, x, y, mu):
-    #     u = self.get_u(x, y, mu)
-    #     a, b, c, d = self.get_metric_tensor(x, y)
-    #     dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
-    #     dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
-    #     A_grad_u_x = a * dx_u + b * dy_u
-    #     A_grad_u_y = c * dx_u + d * dy_u
+    def get_residual(self, x, y, mu):
+        u = self.get_u(x, y, mu)
+        a, b, c, d = self.get_metric_tensor(x, y)
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        A_grad_u_x = a * dx_u + b * dy_u
+        A_grad_u_y = c * dx_u + d * dy_u
 
-    #     dx_A_grad_u_x = torch.autograd.grad(A_grad_u_x.sum(), x, create_graph=True)[0]
-    #     dy_A_grad_u_y = torch.autograd.grad(A_grad_u_y.sum(), y, create_graph=True)[0]
+        dx_A_grad_u_x = torch.autograd.grad(A_grad_u_x.sum(), x, create_graph=True)[0]
+        dy_A_grad_u_y = torch.autograd.grad(A_grad_u_y.sum(), y, create_graph=True)[0]
 
-    #     f = sourceTerms.get_f(
-    #         *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-    #         mu=mu,
-    #         name=self.source_term,
-    #     )
+        f = sourceTerms.get_f(
+            *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            mu=mu,
+            name=self.source_term,
+        )
 
-    #     return torch.log(dx_A_grad_u_x + dy_A_grad_u_y + f)
+        res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
+        return res * (res<0.1)
 
     def get_u(self, x, y, mu):
         return bc.apply_BC(
@@ -420,14 +421,14 @@ class PINNs:
             self.fig_storage,
         )
 
-        # makePlots.edp_contour_param(
-        #     self.rho_min,
-        #     self.rho_max,
-        #     self.mu_min,
-        #     self.mu_max,
-        #     self.get_residual,
-        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
-        #     save_plots,
-        #     self.fig_storage,
-        # )
+        makePlots.edp_contour_param(
+            self.rho_min,
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            self.get_residual,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+            save_plots,
+            self.fig_storage,
+        )
