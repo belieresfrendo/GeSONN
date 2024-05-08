@@ -117,9 +117,7 @@ class PINNs:
         self.file_name = (
             "./../../../outputs/PINNs/net/" + PINNsDict["file_name"] + ".pth"
         )
-        self.fig_storage = (
-            "./../outputs/PINNs/img/" + PINNsDict["file_name"]
-        )
+        self.fig_storage = "./../outputs/PINNs/img/" + PINNsDict["file_name"]
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.file_name = os.path.join(script_dir, self.file_name)
         # Learning rate
@@ -129,7 +127,7 @@ class PINNs:
         # Geometry of the shape
         self.rho_min, self.rho_max = PINNsDict["rho_min"], PINNsDict["rho_max"]
         self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.Vol = torch.pi * self.rho_max**2
+        self.Vol = torch.pi * (self.rho_max - self.rho_min) ** 2
         self.name_symplecto = PINNsDict["symplecto_name"]
         # Source term of the Poisson problem
         self.source_term = PINNsDict["source_term"]
@@ -242,7 +240,6 @@ class PINNs:
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
         return A_grad_u_grad_u
-    
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -273,7 +270,7 @@ class PINNs:
 
         res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
 
-        return res * (res<0.1)
+        return res
 
     def get_u(self, x, y):
         return bc.apply_BC(
@@ -396,22 +393,61 @@ class PINNs:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        makePlots.edp_contour(
-            self.rho_min,
-            self.rho_max,
-            self.get_u,
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
-            save_plots,
-            self.fig_storage,
+        n_visu = 768
+        if device == "cuda":
+            n_visu = 128
+
+        # makePlots.edp_contour(
+        #     self.rho_min,
+        #     self.rho_max,
+        #     self.get_u,
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+        #     save_plots,
+        #     self.fig_storage,
+        #     n_visu=n_visu,
+        # )
+
+        # makePlots.edp_contour(
+        #     self.rho_min,
+        #     self.rho_max,
+        #     self.get_residual,
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+        #     save_plots,
+        #     self.fig_storage + "_residual",
+        #     n_visu=n_visu,
+        # )
+
+        n_visu = 50_000
+        self.make_collocation(n_visu)
+
+        u = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
+        residual = (
+            self.get_residual(self.x_collocation, self.y_collocation).detach().cpu()
         )
 
-        makePlots.edp_contour(
-            self.rho_min,
-            self.rho_max,
-            self.get_residual,
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
-            save_plots,
-            self.fig_storage + "_residual",
+        xT, yT = metricTensors.apply_symplecto(
+            self.x_collocation, self.y_collocation, name=self.name_symplecto
         )
+        xT = xT.detach().cpu()
+        yT = yT.detach().cpu()
+
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+
+        im = ax[0].scatter(xT, yT, s=1, c=u, cmap="gist_ncar")
+        ax[0].set_aspect("equal")
+        fig.colorbar(im, ax=ax[0])
+
+        im = ax[1].scatter(xT, yT, s=1, c=residual, cmap="gist_ncar")
+        ax[1].set_aspect("equal")
+        fig.colorbar(im, ax=ax[1])
+
+        plt.plot()
+
+        res_L2 = (residual**2).sum() / n_visu * self.Vol
+        avg_res = residual.sum() / n_visu
+        print(f"norme L2 du résidu = {res_L2:3.2e}")
+        print(f"moyenne du résidu = {avg_res:3.2e}")

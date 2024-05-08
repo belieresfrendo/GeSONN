@@ -38,7 +38,7 @@ except ModuleNotFoundError:
     no_torchinfo = True
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is poisson.py")
+print(f"torch loaded; device is {device}; script is poissonParam.py")
 
 # ----------------------------------------------------------------------
 #   CLASSE NET - HERITIERE DE NN.DATAPARALLEL
@@ -409,6 +409,10 @@ class PINNs:
     def plot_result(self, save_plots):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
+        n_visu = 768
+        if device == "cuda":
+            n_visu = 256
+
         makePlots.edp_contour_param(
             self.rho_min,
             self.rho_max,
@@ -419,6 +423,7 @@ class PINNs:
             lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
             save_plots,
             self.fig_storage,
+            n_visu=n_visu,
         )
 
         makePlots.edp_contour_param(
@@ -431,4 +436,5 @@ class PINNs:
             lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
             save_plots,
             self.fig_storage,
+            n_visu=n_visu,
         )

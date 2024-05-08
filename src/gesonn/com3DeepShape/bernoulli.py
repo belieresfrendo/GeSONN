@@ -290,10 +290,9 @@ class Geo_Net:
 
         return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-    def get_optimality_condition(self):
-        n = 10_000
+    def get_optimality_condition(self, n=10_000):
         theta = torch.linspace(
-            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
+            0, 2 * torch.pi, n, requires_grad=True, device=device, dtype=torch.float64
         )[:, None]
         x = self.rho_max * torch.cos(theta)
         y = self.rho_max * torch.sin(theta)
@@ -529,6 +528,10 @@ class Geo_Net:
 
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
+        n_visu = 768
+        if device == "cuda":
+            n_visu = 124
+
         makePlots.edp_contour_bernoulli(
             self.rho_max,
             self.a,
@@ -538,6 +541,7 @@ class Geo_Net:
             lambda x, y: self.apply_inverse_symplecto(x, y),
             save_plots,
             self.fig_storage,
+            n_visu=n_visu,
         )
 
         makePlots.optimality_condition(
@@ -545,93 +549,3 @@ class Geo_Net:
             save_plots,
             self.fig_storage,
         )
-
-        # import matplotlib.pyplot as plt
-
-        # fig, ax = plt.subplots(2, 2, figsize=[12.8, 9.6])
-
-        # ax[0, 0].plot(self.loss_history)
-        # ax[0, 0].set_yscale("symlog", linthresh=1e-4)
-        # ax[0, 0].set_title("loss history")
-
-        # n_visu = 50_000
-        # n_visu_border = 10_000
-        # self.make_collocation(n_visu)
-        # self.make_border_collocation(n_visu_border)
-
-        # xT, yT = self.apply_symplecto(self.x_collocation, self.y_collocation)
-
-        # xT_inv, yT_inv = self.apply_inverse_symplecto(xT, yT)
-        # u_pred = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
-
-        # condition_optimalite, xT_gamma, yT_gamma = self.get_optimality_condition()
-        # CD_OPTIM = condition_optimalite.sum() / n_visu_border
-
-        # x, y = (
-        #     self.x_collocation.detach().cpu(),
-        #     self.y_collocation.detach().cpu(),
-        # )
-        # xT, yT = xT.detach().cpu(), yT.detach().cpu()
-        # xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
-        # xT_gamma, yT_gamma = xT_gamma.detach().cpu(), yT_gamma.detach().cpu()
-
-        # im = ax[0, 1].scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=u_pred,
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax[0, 1])
-        # ax[0, 1].set_title("$u_{pred}$")
-        # ax[0, 1].set_aspect("equal")
-
-        # im = ax[1, 0].scatter(
-        #     x,
-        #     y,
-        #     s=1,
-        # )
-        # ax[1, 0].set_title("$C$ privé de $T^{-1}E$")
-        # ax[1, 0].set_aspect("equal")
-
-        # im = ax[1, 1].scatter(
-        #     xT_gamma,
-        #     yT_gamma,
-        #     s=1,
-        #     c=condition_optimalite.detach().cpu(),
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax[1, 1])
-        # ax[1, 1].set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
-        # ax[1, 1].set_aspect("equal")
-
-        # print("Dirichlet energy", self.loss.item())
-        # print("Condition d'optimalité", CD_OPTIM.item())
-
-        # plt.show()
-
-        # fig, ax = plt.subplots()
-        # im = ax.scatter(
-        #     xT,
-        #     yT,
-        #     s=1,
-        #     c=u_pred,
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax)
-        # ax.set_title("$u_{pred}$")
-        # ax.set_aspect("equal")
-        # plt.show()
-
-        # fig, ax = plt.subplots()
-        # im = ax.scatter(
-        #     xT_gamma,
-        #     yT_gamma,
-        #     s=1,
-        #     c=condition_optimalite.detach().cpu(),
-        #     cmap="gist_ncar",
-        # )
-        # fig.colorbar(im, ax=ax)
-        # ax.set_title("$|\partial_n u_{pred} - avg(\partial_n u_{pred})|^2$")
-        # ax.set_aspect("equal")
-        # plt.show()

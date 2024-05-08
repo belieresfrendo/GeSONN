@@ -13,6 +13,6 @@ def get_f(x, y, mu=1., name=None):
         return torch.exp(1 - r2)   
     elif name == "sin":
         r2 = (0.5 * x) ** 2 + (2 * y) ** 2
-        return 5 * torch.sin(x*torch.pi)*torch.cos(y*torch.pi) * (torch.sin(x*torch.pi)*torch.cos(y*torch.pi)>0.2)
+        return 5 * torch.sin(x*torch.pi)*torch.cos(y*torch.pi)
     return 0
 

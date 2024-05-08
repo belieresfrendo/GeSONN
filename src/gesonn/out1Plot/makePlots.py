@@ -1,10 +1,14 @@
 import matplotlib.pyplot as plt
 from matplotlib import rc
+import torch
 
 from gesonn.ana1Tests.optimalShapes import translate_to_zero
 
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"torch loaded; device is {device}")
 
 
 def loss(loss_history, save_plots, name):
@@ -49,9 +53,13 @@ def edp_contour(
     y_min -= 0.025 * max(lx, ly)
 
     # make meshgrid
-    x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64, requires_grad=True)
+    x = torch.linspace(
+        x_min, x_max, n_visu, dtype=torch.float64, device=device, requires_grad=True
+    )
     x_ = torch.tile(x, (n_visu,))[:, None]
-    y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64, requires_grad=True)
+    y = torch.linspace(
+        y_min, y_max, n_visu, dtype=torch.float64, device=device, requires_grad=True
+    )
     y_ = torch.repeat_interleave(y, n_visu)[:, None]
 
     # apply the inverse symplecto to get u
@@ -60,6 +68,7 @@ def edp_contour(
 
     # mask u outside the domain
     x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
+    xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
     mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (xT_inv**2 + yT_inv**2 < rho_min**2)
     u = np.ma.array(u, mask=mask)
 
@@ -134,9 +143,13 @@ def edp_contour_param(
         y_max += 0.025 * max(lx, ly)
         y_min -= 0.025 * max(lx, ly)
         # make meshgrid
-        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64, requires_grad=True)
+        x = torch.linspace(
+            x_min, x_max, n_visu, dtype=torch.float64, device=device, requires_grad=True
+        )
         x_ = torch.tile(x, (n_visu,))[:, None]
-        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64, requires_grad=True)
+        y = torch.linspace(
+            y_min, y_max, n_visu, dtype=torch.float64, device=device, requires_grad=True
+        )
         y_ = torch.repeat_interleave(y, n_visu)[:, None]
         ones_ = torch.ones_like(x_)
         mu_visu_ = mu * ones_
@@ -152,9 +165,8 @@ def edp_contour_param(
 
         # mask u outside the domain
         x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
-        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (
-            xT_inv**2 + yT_inv**2 < rho_min**2
-        )
+        xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (xT_inv**2 + yT_inv**2 < rho_min**2)
         u = np.ma.array(u, mask=mask)
 
         # draw the contours
@@ -298,7 +310,7 @@ def edp_contour_bernoulli(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     x, y = apply_symplecto(x, y)
@@ -312,9 +324,9 @@ def edp_contour_bernoulli(
     y_min -= 0.025 * max(lx, ly)
 
     # make meshgrid
-    x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+    x = torch.linspace(x_min, x_max, n_visu, device=device, dtype=torch.float64)
     x_ = torch.tile(x, (n_visu,))[:, None]
-    y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+    y = torch.linspace(y_min, y_max, n_visu, device=device, dtype=torch.float64)
     y_ = torch.repeat_interleave(y, n_visu)[:, None]
 
     # apply the inverse symplecto to get u
@@ -323,7 +335,9 @@ def edp_contour_bernoulli(
 
     # mask u outside the domain
     x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
-    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_ / a) ** 2 + (y_ / b) ** 2 < 1)
+    xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
+    x_, y_ = x_.detach().cpu(), y_.detach().cpu()
+    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_/a)**2 + (y_/b)**2 < 1)
     u = np.ma.array(u, mask=mask)
 
     # draw the contours
@@ -533,7 +547,11 @@ def param_shape_superposition(
 
 def optimality_condition(get_optimality_condition, save_plots, name):
 
-    optimality_condition, xT, yT = get_optimality_condition()
+    n_pts = 10_000
+    if device == "cpu":
+        n_pts = 1_000
+
+    optimality_condition, xT, yT = get_optimality_condition(n_pts)
     xT_min, xT_max = xT.min().item(), xT.max().item()
     yT_min, yT_max = yT.min().item(), yT.max().item()
     lx = xT_max - xT_min
@@ -644,6 +662,7 @@ def deep_shape_error(
     if save_plots:
         plt.savefig(name + "_error.pdf")
     plt.show()
+
 
 def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
     fig, ax = plt.subplots(figsize=(7.5, 7.5))

@@ -19,8 +19,8 @@ if __name__ == "__main__":
     train = False
 
     PINNsDict = {
-        "learning_rate": 1e-3,
-        "layer_sizes": [3, 10, 20, 40, 20, 10, 1],
+        "learning_rate": 1e-2,
+        "layer_sizes": [3, 10, 20, 40, 80, 160, 80, 40, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 5000
+    epochs = 10_000
     n_collocation = 10_000
     new_training = False
     new_training = True
