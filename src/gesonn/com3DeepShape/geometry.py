@@ -286,8 +286,7 @@ class Geo_Net:
 
         return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-    def get_optimality_condition(self):
-        n = 10_000
+    def get_optimality_condition(self, n=10_000):
         theta = torch.linspace(
             0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
         )[:, None]
