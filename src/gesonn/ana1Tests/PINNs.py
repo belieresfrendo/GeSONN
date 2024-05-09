@@ -26,9 +26,6 @@ import torch.nn as nn
 from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import metricTensors, sourceTerms
 
-# local imports
-from gesonn.out1Plot import makePlots
-
 try:
     import torchinfo
 
@@ -252,7 +249,7 @@ class PINNs:
 
         return f * u
 
-    def get_res(self, x, y):
+    def get_residual(self, x, y):
         u = self.get_u(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
@@ -268,7 +265,7 @@ class PINNs:
             name=self.source_term,
         )
 
-        res = dx_A_grad_u_x + dy_A_grad_u_y + f
+        res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
 
         return res
 
@@ -330,17 +327,9 @@ class PINNs:
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
 
-                grad_u_2 = self.left_hand_term(
-                    self.x_collocation,
-                    self.y_collocation,
-                )
-                fu = self.right_hand_term(
-                    self.x_collocation,
-                    self.y_collocation,
-                )
+                res = self.get_residual(self.x_collocation, self.y_collocation)
 
-                dirichlet_loss = 0.5 * grad_u_2 - fu
-                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
+                self.loss = (res**2).sum() / n_collocation * self.Vol
 
             self.loss.backward()
             self.u_optimizer.step()
@@ -384,74 +373,5 @@ class PINNs:
         except UnboundLocalError:
             pass
 
-        if plot_history:
-            self.plot_result(save_plots)
-
         return tps2 - tps1
 
-    def plot_result(self, save_plots):
-
-        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
-
-        n_visu = 768
-        if device == "cuda":
-            n_visu = 128
-
-        makePlots.edp_contour(
-            self.rho_min,
-            self.rho_max,
-            self.get_u,
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{self.name_symplecto}"
-            ),
-            save_plots,
-            self.fig_storage,
-            n_visu=n_visu,
-        )
-
-        makePlots.edp_contour(
-            self.rho_min,
-            self.rho_max,
-            self.get_res,
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{self.name_symplecto}"
-            ),
-            save_plots,
-            self.fig_storage + "_residual",
-            n_visu=n_visu,
-        )
-
-        # n_visu = 50_000
-        # self.make_collocation(n_visu)
-
-        # u = self.get_u(self.x_collocation, self.y_collocation).detach().cpu()
-        # residual = (
-        #     self.get_res(self.x_collocation, self.y_collocation).detach().cpu()
-        # )
-
-        # xT, yT = metricTensors.apply_symplecto(
-        #     self.x_collocation, self.y_collocation, name=self.name_symplecto
-        # )
-        # xT = xT.detach().cpu()
-        # yT = yT.detach().cpu()
-
-        # import matplotlib.pyplot as plt
-
-        # fig, ax = plt.subplots(2, 1, figsize=(10, 10))
-
-        # im = ax[0].scatter(xT, yT, s=1, c=u, cmap="gist_ncar")
-        # ax[0].set_aspect("equal")
-        # fig.colorbar(im, ax=ax[0])
-
-        # im = ax[1].scatter(xT, yT, s=1, c=residual, cmap="gist_ncar")
-        # ax[1].set_aspect("equal")
-        # fig.colorbar(im, ax=ax[1])
-
-        # plt.plot()
-
-        # res_L2 = (residual**2).sum() / n_visu * self.Vol
-        # avg_res = residual.sum() / n_visu
-        # print(f"norme L2 du résidu = {res_L2:3.2e}")
-        # print(f"moyenne du résidu = {avg_res:3.2e}")
