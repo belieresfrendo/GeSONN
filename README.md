@@ -25,6 +25,7 @@ source venv_gesonn/bin/activate
 ### Install the package
 
 ```bash
+python3 -m pip install --upgrade pip
 pip install -e .
 ```
 
