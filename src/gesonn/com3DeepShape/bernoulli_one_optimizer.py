@@ -28,14 +28,6 @@ from gesonn.com1PINNs import poissonSTANH as poisson
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
 
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is deepGeometry.py")
 
@@ -58,6 +50,7 @@ class Geo_Net:
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
+        "tikhonov": 0,
     }
 
     # constructeur
@@ -90,6 +83,8 @@ class Geo_Net:
             ]
         if deepGeoDict.get("a") == None:
             deepGeoDict["a"] = self.DEFAULT_DEEP_GEO_DICT["a"]
+        if deepGeoDict.get("tikhonov") == None:
+            deepGeoDict["tikhonov"] = self.DEFAULT_PINNS_DICT["tikhonov"]
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
 
@@ -113,6 +108,8 @@ class Geo_Net:
         self.Vol = torch.pi * self.rho_max**2
         # Boundary condition of the Poisson problem
         self.boundary_condition = deepGeoDict["boundary_condition"]
+        # thikhonov regularization epsilon parameter
+        self.pen_tikhonov = deepGeoDict["tikhonov"]
 
         # Parameters of the compact set K
         self.a = deepGeoDict["a"]
@@ -434,7 +431,13 @@ class Geo_Net:
                 )
 
                 dirichlet_loss = 0.5 * grad_u_2
-                self.loss = dirichlet_loss.sum() / n_pts * self.Vol
+                loss = dirichlet_loss
+
+                if self.pen_tikhonov != 0:
+                    tikhonov = grad_u_2
+                    loss += self.pen_tikhonov * tikhonov**2
+
+                self.loss = loss.sum() * self.Vol / n_collocation
 
             self.loss.backward()
             self.optimizer.step()

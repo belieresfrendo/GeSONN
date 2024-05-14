@@ -350,7 +350,7 @@ class PINNs:
                 )
 
                 dirichlet_loss = 0.5 * grad_u_2 - fu
-                loss = dirichlet_loss.sum()
+                loss = dirichlet_loss
 
                 if self.pen_tikhonov != 0:
                     tikhonov = grad_u_2 - fu

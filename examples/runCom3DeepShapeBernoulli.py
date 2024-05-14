@@ -30,6 +30,7 @@ if __name__ == "__main__":
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
+        "tikhonov" : 0,
     }
 
     epochs = 1_000
