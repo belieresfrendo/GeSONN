@@ -166,12 +166,21 @@ class Geo_Net:
 
     def create_LBFGS_optimizer(self):
         print("Le Big Fucking Gradient Soviet est loaded")
+        up_optimizers = []
+        down_optimizers = []
+        for i in range(self.nb_of_networks):
+            up_optimizers.append(
+                {"params": self.up_nets[i].parameters(), "lr": self.sympnet_learning_rate}
+            )
+            down_optimizers.append(
+                {"params": self.down_nets[i].parameters(), "lr": self.sympnet_learning_rate}
+            )
 
         self.LBFGS_optimizer = torch.optim.LBFGS(
             [
                 {"params": self.u_net.parameters()},
-                # *self.up_optimizers,
-                # *self.down_optimizers,
+                *up_optimizers,
+                *down_optimizers,
             ],
             # *self.optimizer,
             history_size=self.LBFGS_history_size,

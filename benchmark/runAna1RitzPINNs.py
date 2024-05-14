@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     PINNsDict = {
         "learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "layer_sizes": [2, 40, 80, 80, 40, 1],
         "rho_min": 0.2,
         "rho_max": 1,
         "file_name": "PINNS_compare_ritz_pinns",
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     DeepRitzDict = {
         "learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "layer_sizes": [2, 40, 80, 80, 40, 1],
         "rho_min": 0.2,
         "rho_max": 1,
         "file_name": "DeepRitz_compare_ritz_pinns",
@@ -50,13 +50,16 @@ if __name__ == "__main__":
     epochs = 5_000
     n_collocation = 10_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
     # ==============================================================
     # End of the modifiable area
     # ==============================================================
+
+    PINNS_network = PINNs.PINNs(PINNsDict=PINNsDict)
+    DeepRitz_network = poisson.PINNs(PINNsDict=DeepRitzDict)
 
     if train:
         if new_training:
@@ -67,9 +70,6 @@ if __name__ == "__main__":
                 )
             except FileNotFoundError:
                 pass
-
-        PINNS_network = PINNs.PINNs(PINNsDict=PINNsDict)
-        DeepRitz_network = poisson.PINNs(PINNsDict=DeepRitzDict)
 
         _ = PINNS_network.train(
             epochs=epochs,
@@ -84,66 +84,132 @@ if __name__ == "__main__":
             save_plots=save_plots,
         )
 
-        makePlots.loss(PINNS_network.loss_history, False, None)
-        makePlots.loss(DeepRitz_network.loss_history, False, None)
+    makePlots.loss(PINNS_network.loss_history, False, None)
+    makePlots.loss(DeepRitz_network.loss_history, False, None)
 
 
-        makePlots.edp_contour(
-            PINNS_network.rho_min,
-            PINNS_network.rho_max,
-            PINNS_network.get_u,
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=PINNS_network.name_symplecto
-            ),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{PINNS_network.name_symplecto}"
-            ),
-            False,
-            None,
-        )
+    makePlots.edp_contour(
+        PINNS_network.rho_min,
+        PINNS_network.rho_max,
+        PINNS_network.get_u,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=PINNS_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{PINNS_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
 
-        makePlots.edp_contour(
-            DeepRitz_network.rho_min,
-            DeepRitz_network.rho_max,
-            DeepRitz_network.get_u,
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=DeepRitz_network.name_symplecto
-            ),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
-            ),
-            False,
-            None,
-        )
+    makePlots.edp_contour(
+        DeepRitz_network.rho_min,
+        DeepRitz_network.rho_max,
+        DeepRitz_network.get_u,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=DeepRitz_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
 
-        makePlots.edp_contour(
-            DeepRitz_network.rho_min,
-            DeepRitz_network.rho_max,
-            DeepRitz_network.get_res,
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=DeepRitz_network.name_symplecto
-            ),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
-            ),
-            False,
-            None,
-        )
+    makePlots.edp_contour(
+        PINNS_network.rho_min,
+        PINNS_network.rho_max,
+        PINNS_network.get_residual,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=PINNS_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{PINNS_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
 
-        def get_pointwise_err(x, y):
-            return DeepRitz_network.get_u(x, y) - PINNS_network.get_u(x, y)
+    makePlots.edp_contour(
+        DeepRitz_network.rho_min,
+        DeepRitz_network.rho_max,
+        DeepRitz_network.get_res,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=DeepRitz_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
+
+    def get_pointwise_err(x, y):
+        return DeepRitz_network.get_u(x, y) - PINNS_network.get_u(x, y)
 
 
-        makePlots.edp_contour(
-            DeepRitz_network.rho_min,
-            DeepRitz_network.rho_max,
-            get_pointwise_err,
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=DeepRitz_network.name_symplecto
-            ),
-            lambda x, y: metricTensors.apply_symplecto(
-                x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
-            ),
-            False,
-            None,
-        )
+    makePlots.edp_contour(
+        DeepRitz_network.rho_min,
+        DeepRitz_network.rho_max,
+        get_pointwise_err,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=DeepRitz_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
+
+    def get_integrand(x, y, network):
+        A_grad_u_grad_u = network.left_hand_term(x, y)
+        f_u = network.right_hand_term(x, y)
+        return A_grad_u_grad_u - f_u
+
+    makePlots.edp_contour(
+        PINNS_network.rho_min,
+        PINNS_network.rho_max,
+        lambda x, y: get_integrand(x, y, PINNS_network),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=PINNS_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{PINNS_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
+
+
+    makePlots.edp_contour(
+        DeepRitz_network.rho_min,
+        DeepRitz_network.rho_max,
+        lambda x, y: get_integrand(x, y, DeepRitz_network),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=DeepRitz_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )
+
+    def compare_integrand(x, y):
+        return get_integrand(x, y, PINNS_network) - get_integrand(x, y, DeepRitz_network)
+
+
+    makePlots.edp_contour(
+        DeepRitz_network.rho_min,
+        DeepRitz_network.rho_max,
+        compare_integrand,
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=DeepRitz_network.name_symplecto
+        ),
+        lambda x, y: metricTensors.apply_symplecto(
+            x, y, name=f"inverse_{DeepRitz_network.name_symplecto}"
+        ),
+        False,
+        None,
+    )

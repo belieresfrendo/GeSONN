@@ -265,9 +265,9 @@ class PINNs:
             name=self.source_term,
         )
 
-        res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
+        res = dx_A_grad_u_x + dy_A_grad_u_y + f
 
-        return res
+        return - res
 
     def get_u(self, x, y):
         return bc.apply_BC(

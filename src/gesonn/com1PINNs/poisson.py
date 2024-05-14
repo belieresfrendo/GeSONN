@@ -86,6 +86,7 @@ class PINNs:
         "to_be_trained": True,
         "source_term": "one",
         "boundary_condition": "dirichlet_homgene",
+        "tikhonov": 0,
     }
 
     # constructeur
@@ -110,6 +111,8 @@ class PINNs:
             PINNsDict["boundary_condition"] = self.DEFAULT_PINNS_DICT[
                 "boundary_condition"
             ]
+        if PINNsDict.get("tikhonov") == None:
+            PINNsDict["tikhonov"] = self.DEFAULT_PINNS_DICT["tikhonov"]
         if PINNsDict.get("to_be_trained") == None:
             PINNsDict["to_be_trained"] = self.DEFAULT_PINNS_DICT["to_be_trained"]
 
@@ -133,6 +136,8 @@ class PINNs:
         self.source_term = PINNsDict["source_term"]
         # Boundary condition of the Poisson problem
         self.boundary_condition = PINNsDict["boundary_condition"]
+        # thikhonov regularization epsilon parameter
+        self.pen_tikhonov = PINNsDict["tikhonov"]
 
         self.create_network()
         self.load(self.file_name)
@@ -219,7 +224,7 @@ class PINNs:
             fac = (J_a * J_d - J_b * J_c) ** 2
             A_a = (J_d**2 + J_b**2) / fac
             A_b = -(J_c * J_d + J_a * J_b) / fac
-            A_c = -(J_c * J_d + J_a * J_b) / fac
+            A_c = A_b
             A_d = (J_c**2 + J_a**2) / fac
 
         else:
@@ -252,6 +257,11 @@ class PINNs:
 
         return f * u
 
+    def get_fv(self, x, y):
+        grad_u_2 = self.left_hand_term(x, y)
+        fu = self.right_hand_term(x, y)
+        return grad_u_2 - fu
+
     def get_res(self, x, y):
         u = self.get_u(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
@@ -270,7 +280,7 @@ class PINNs:
 
         res = dx_A_grad_u_x + dy_A_grad_u_y + f
 
-        return res
+        return -res
 
     def get_u(self, x, y):
         return bc.apply_BC(
@@ -340,7 +350,13 @@ class PINNs:
                 )
 
                 dirichlet_loss = 0.5 * grad_u_2 - fu
-                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
+                loss = dirichlet_loss.sum()
+
+                if self.pen_tikhonov != 0:
+                    tikhonov = grad_u_2 - fu
+                    loss += self.pen_tikhonov * tikhonov**2
+
+                self.loss = loss.sum() * self.Vol / n_collocation
 
             self.loss.backward()
             self.u_optimizer.step()
@@ -414,6 +430,19 @@ class PINNs:
             self.rho_min,
             self.rho_max,
             self.get_res,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(
+                x, y, name=f"inverse_{self.name_symplecto}"
+            ),
+            save_plots,
+            self.fig_storage + "_residual",
+            n_visu=n_visu,
+        )
+
+        makePlots.edp_contour(
+            self.rho_min,
+            self.rho_max,
+            self.get_fv,
             lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
             lambda x, y: metricTensors.apply_symplecto(
                 x, y, name=f"inverse_{self.name_symplecto}"

@@ -263,7 +263,7 @@ class PINNs:
 
         res = dx_A_grad_u_x + dy_A_grad_u_y + f
 
-        return res
+        return torch.log(torch.abs(res))
 
     def get_u(self, x, y):
         return bc.apply_BC(
@@ -310,7 +310,7 @@ class PINNs:
         except AttributeError:
             best_loss_value = 1e10
 
-        self.scheduler = ExponentialLR(self.u_optimizer, 1)
+        self.scheduler = ExponentialLR(self.u_optimizer, 0.9998)
 
         # boucle principale de la descnet ede gradient
         tps1 = time.time()

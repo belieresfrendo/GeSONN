@@ -80,7 +80,7 @@ def edp_contour(
         y,
         u,
         n_contour,
-        cmap="turbo",
+        cmap="gist_ncar",
         zorder=-9,
     )
 
