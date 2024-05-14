@@ -18,24 +18,16 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
 
-# local imports
-from gesonn.out1Plot import makePlots
 from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import metricTensors
-from gesonn.com1PINNs import sourceTerms
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
+from gesonn.com1PINNs import metricTensors, sourceTerms
+from gesonn.out1Plot import makePlots
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is poissonParam.py")
@@ -263,6 +255,49 @@ class PINNs:
 
         return f * u
 
+    def get_fv(self, x, y, mu):
+        grad_u_2 = self.left_hand_term(x, y, mu)
+        fu = self.right_hand_term(x, y, mu)
+        return grad_u_2 - fu
+
+    def get_fv_with_random_function(self, n_pts=50_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        self.make_collocation(n_pts)
+        x, y, mu = self.x_collocation, self.y_collocation, self.mu_collocation
+
+        u = self.get_u(x, y, mu)
+        a, b, c, d = self.get_metric_tensor(x, y)
+
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+
+        alpha = bc.compute_bc_mul(
+            x, y, self.rho_min, self.rho_max, name=self.boundary_condition
+        )
+
+        coeff = torch.rand(6)
+        constant = coeff[0]
+        linear = coeff[1] * x + coeff[2] * y
+        quadratic = coeff[3] * x**2 + coeff[4] * x * y + coeff[5] * y**2
+        polynomial = constant + linear + quadratic
+
+        phi = polynomial * alpha
+
+        dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
+        dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
+
+        A_grad_u_grad_phi = (a * dx_u + b * dy_u) * dx_phi + (
+            c * dx_u + d * dy_u
+        ) * dy_phi
+
+        f = sourceTerms.get_f(
+            *metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            mu=mu,
+            name=self.source_term,
+        )
+
+        return (A_grad_u_grad_phi - f * phi).sum().item() / x.shape[0] * self.Vol
+
     def get_residual(self, x, y, mu):
         u = self.get_u(x, y, mu)
         a, b, c, d = self.get_metric_tensor(x, y)
@@ -281,7 +316,7 @@ class PINNs:
         )
 
         res = torch.abs(dx_A_grad_u_x + dy_A_grad_u_y + f)
-        return res * (res<0.1)
+        return res * (res < 0.1)
 
     def get_u(self, x, y, mu):
         return bc.apply_BC(
@@ -309,6 +344,18 @@ class PINNs:
         rho_collocation = torch.sqrt(
             self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
         )
+        theta_collocation = self.random(0, 2 * torch.math.pi, shape, requires_grad=True)
+
+        self.x_collocation = rho_collocation * torch.cos(theta_collocation)
+        self.y_collocation = rho_collocation * torch.sin(theta_collocation)
+        self.mu_collocation = self.random(
+            self.mu_min, self.mu_max, shape, requires_grad=True
+        )
+
+    def make_collocation_boundary(self, n_collocation):
+        shape = (n_collocation, 1)
+
+        rho_collocation = self.rho_max * torch.ones(shape, requires_grad=True)
         theta_collocation = self.random(0, 2 * torch.math.pi, shape, requires_grad=True)
 
         self.x_collocation = rho_collocation * torch.cos(theta_collocation)
@@ -379,7 +426,10 @@ class PINNs:
                     pass
 
             if self.loss.item() < best_loss_value:
-                print(f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}")
+                string = f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}"
+                string += f", residual = {abs(self.get_fv_with_random_function()):3.2e}"
+                print(string)
+
                 best_loss = self.loss.clone()
                 best_loss_value = best_loss.item()
                 best_u_net = copy.deepcopy(self.u_net.state_dict())
@@ -401,8 +451,8 @@ class PINNs:
         except UnboundLocalError:
             pass
 
-        if plot_history:
-            self.plot_result(save_plots)
+        # if plot_history:
+        #     self.plot_result(save_plots)
 
         return tps2 - tps1
 
@@ -420,21 +470,42 @@ class PINNs:
             self.mu_max,
             self.get_u,
             lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+            lambda x, y: metricTensors.apply_symplecto(
+                x, y, name=f"inverse_{self.name_symplecto}"
+            ),
             save_plots,
             self.fig_storage,
             n_visu=n_visu,
         )
 
-        makePlots.edp_contour_param(
-            self.rho_min,
-            self.rho_max,
-            self.mu_min,
-            self.mu_max,
-            self.get_residual,
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-            lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
-            save_plots,
-            self.fig_storage,
-            n_visu=n_visu,
-        )
+        # makePlots.edp_contour_param(
+        #     self.rho_min,
+        #     self.rho_max,
+        #     self.mu_min,
+        #     self.mu_max,
+        #     self.get_f,
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=f"inverse_{self.name_symplecto}"),
+        #     save_plots,
+        #     self.fig_storage,
+        #     n_visu=n_visu,
+        # )
+
+    def compute_stats(self, n_pts=50_000, n_random=1_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        assert isinstance(n_random, int) and n_random > 0
+
+        residuals = torch.zeros(n_random)
+        for i in range(n_random):
+            if i % 100 == 0:
+                print(f"Computing residuals... {int(100 * i / n_random)}% done")
+            residuals[i] = self.get_fv_with_random_function(n_pts)
+
+        residuals = torch.abs(residuals)
+
+        print(f"\nMean residual: {residuals.mean():3.2e}")
+        print(f"Max residual: {residuals.max():3.2e}")
+        print(f"Min residual: {residuals.min():3.2e}")
+        print(f"Variance residual: {residuals.var():3.2e}")
+
+        return residuals
