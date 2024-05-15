@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import torch
-from gesonn.ana1Tests.optimalShapes import translate_to_zero
 from matplotlib import rc
+
+from gesonn.ana1Tests.optimalShapes import translate_to_zero
 
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
@@ -115,17 +116,32 @@ def edp_contour_param(
     n_contour=250,
     draw_contours=True,
     n_drawn_contours=10,
+    n_random_params=0,
+    paper=False,
 ):
     import numpy as np
     import torch
 
-    mu_list = [
-        mu_min,
-        0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + 0.5 * mu_max,
-        0.25 * mu_min + 0.75 * mu_max,
-        mu_max,
-    ]
+    assert (not paper) or (n_random_params == 0), "n_random_params must be 0 for paper plots"
+
+    if n_random_params:
+        mu_list = torch.rand(n_random_params) * (mu_max - mu_min) + mu_min
+        print("Plotting with random parameters:", mu_list)
+    elif paper:
+        mu_list = [
+            0.8 * mu_min + 0.2 * mu_max,
+            0.6 * mu_min + 0.4 * mu_max,
+            0.4 * mu_min + 0.6 * mu_max,
+            0.2 * mu_min + 0.8 * mu_max,
+        ]
+    else:
+        mu_list = [
+            mu_min,
+            0.75 * mu_min + 0.25 * mu_max,
+            0.5 * mu_min + 0.5 * mu_max,
+            0.25 * mu_min + 0.75 * mu_max,
+            mu_max,
+        ]
 
     for mu in mu_list:
         # measuring the min and max coordinates of the bounding box
@@ -195,7 +211,7 @@ def edp_contour_param(
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
         if save_plots:
-            plt.savefig(name + f"_mu_{mu:3.2f}.pdf")
+            plt.savefig(f"{name}_mu_{mu:3.2f}.pdf")
         plt.show()
 
 

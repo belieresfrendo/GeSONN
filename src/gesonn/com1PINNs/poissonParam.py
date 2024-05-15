@@ -509,3 +509,24 @@ class PINNs:
         print(f"Variance residual: {residuals.var():3.2e}")
 
         return residuals
+
+    def plot_for_paper(self, save_plots):
+
+        plot_name = f"{self.fig_storage}_SIAM"
+
+        makePlots.edp_contour_param(
+            self.rho_min,
+            self.rho_max,
+            self.mu_min,
+            self.mu_max,
+            self.get_u,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(
+                x, y, name=f"inverse_{self.name_symplecto}"
+            ),
+            save_plots,
+            self.fig_storage,
+            n_visu=768,
+            n_contour=500,
+            paper=True,
+        )
