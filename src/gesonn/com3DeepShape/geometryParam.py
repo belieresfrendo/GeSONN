@@ -30,14 +30,6 @@ from gesonn.com1PINNs import poissonParam, sourceTerms
 from gesonn.com2SympNets import GParam
 from gesonn.out1Plot import makePlots
 
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is deepGeometry.py")
 
@@ -60,47 +52,60 @@ class Geo_Net:
         "to_be_trained": True,
         "source_term": "one",
         "boundary_condition": "homogeneous_dirichlet",
+        "sympnet_activation": torch.sigmoid,
+        "pinn_activation": torch.tanh,
     }
 
     # constructeur
     def __init__(self, **kwargs):
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
 
-        if deepGeoDict.get("pde_learning_rate") == None:
-            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["pde_learning_rate"]
-        if deepGeoDict.get("sympnet_learning_rate") == None:
-            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT["sympnet_learning_rate"]
-        if deepGeoDict.get("layer_sizes") == None:
-            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
-        if deepGeoDict.get("nb_of_networks") == None:
-            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT[
-                "nb_of_networks"
+        if deepGeoDict.get("pde_learning_rate") is None:
+            deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pde_learning_rate"
             ]
-        if deepGeoDict.get("networks_size") == None:
+        if deepGeoDict.get("sympnet_learning_rate") is None:
+            deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_learning_rate"
+            ]
+        if deepGeoDict.get("layer_sizes") is None:
+            deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
+        if deepGeoDict.get("nb_of_networks") is None:
+            deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
+        if deepGeoDict.get("networks_size") is None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
-        if deepGeoDict.get("rho_min") == None:
+        if deepGeoDict.get("rho_min") is None:
             deepGeoDict["rho_min"] = self.DEFAULT_DEEP_GEO_DICT["rho_min"]
-        if deepGeoDict.get("rho_max") == None:
+        if deepGeoDict.get("rho_max") is None:
             deepGeoDict["rho_max"] = self.DEFAULT_DEEP_GEO_DICT["rho_max"]
-        if deepGeoDict.get("mu_min") == None:
+        if deepGeoDict.get("mu_min") is None:
             deepGeoDict["mu_min"] = self.DEFAULT_DEEP_GEO_DICT["mu_min"]
-        if deepGeoDict.get("mu_max") == None:
+        if deepGeoDict.get("mu_max") is None:
             deepGeoDict["mu_max"] = self.DEFAULT_DEEP_GEO_DICT["mu_max"]
-        if deepGeoDict.get("file_name") == None:
+        if deepGeoDict.get("file_name") is None:
             deepGeoDict["file_name"] = self.DEFAULT_DEEP_GEO_DICT["file_name"]
-        if deepGeoDict.get("source_term") == None:
+        if deepGeoDict.get("source_term") is None:
             deepGeoDict["source_term"] = self.DEFAULT_DEEP_GEO_DICT["source_term"]
-        if deepGeoDict.get("boundary_condition") == None:
+        if deepGeoDict.get("boundary_condition") is None:
             deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
                 "boundary_condition"
             ]
-        if deepGeoDict.get("to_be_trained") == None:
+        if deepGeoDict.get("to_be_trained") is None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
-
+        if deepGeoDict.get("sympnet_activation") is None:
+            deepGeoDict["sympnet_activation"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_activation"
+            ]
+        if deepGeoDict.get("pinn_activation") is None:
+            deepGeoDict["pinn_activation"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pinn_activation"
+            ]
 
         # Storage file
         self.file_name = (
-            "./../../../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
+            "./../../../outputs/deepShape/net/param_"
+            + deepGeoDict["file_name"]
+            + ".pth"
         )
         self.fig_storage = (
             "./../outputs/deepShape/img/param_" + deepGeoDict["file_name"]
@@ -123,6 +128,9 @@ class Geo_Net:
         self.mu_min, self.mu_max = deepGeoDict["mu_min"], deepGeoDict["mu_max"]
         # Boundary condition of the Poisson problem
         self.boundary_condition = deepGeoDict["boundary_condition"]
+        # activation functions
+        self.pinn_activation = deepGeoDict["pinn_activation"]
+        self.sympnet_activation = deepGeoDict["sympnet_activation"]
 
         self.create_networks()
         self.load(self.file_name)
@@ -131,7 +139,9 @@ class Geo_Net:
 
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(
-            nn.DataParallel(GParam.Symp_Net_Forward(self.networks_size)).to(device)
+            nn.DataParallel(
+                GParam.Symp_Net_Forward(self.networks_size, self.sympnet_activation)
+            ).to(device)
         )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
@@ -147,9 +157,9 @@ class Geo_Net:
             self.sympnet_layer_append(self.up_nets, self.up_optimizers, i)
             self.sympnet_layer_append(self.down_nets, self.down_optimizers, i)
         # réseau associé à la solution de l'EDP
-        self.u_net = nn.DataParallel(poissonParam.PDE_Forward(self.layer_sizes)).to(
-            device
-        )
+        self.u_net = nn.DataParallel(
+            poissonParam.PDE_Forward(self.layer_sizes, self.pinn_activation)
+        ).to(device)
         self.u_optimizer = torch.optim.Adam(
             self.u_net.parameters(), lr=self.pde_learning_rate
         )
@@ -215,8 +225,6 @@ class Geo_Net:
             "rho_max": self.rho_max,
             "theta_min": self.theta_min,
             "theta_max": self.theta_max,
-            "rho_min": self.rho_min,
-            "rho_max": self.rho_max,
             "mu_min": self.mu_min,
             "mu_max": self.mu_max,
         }
@@ -361,7 +369,7 @@ class Geo_Net:
             y,
             self.rho_min,
             self.rho_max,
-            name =self.boundary_condition,
+            name=self.boundary_condition,
         )
 
     @staticmethod
@@ -536,7 +544,6 @@ class Geo_Net:
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         makePlots.edp_contour_param_source(
@@ -567,3 +574,35 @@ class Geo_Net:
             save_plots,
             self.fig_storage,
         )
+
+        if self.source_term == "one":
+            theta = torch.linspace(
+                0, 2 * torch.pi, 10_000, requires_grad=True, dtype=torch.float64
+            )[:, None]
+            x = self.rho_max * torch.cos(theta)
+            y = self.rho_max * torch.sin(theta)
+            mu = self.random(self.mu_min, self.mu_max, (10_000, 1))
+            xT, yT = self.apply_symplecto(x, y, mu)
+
+            x0 = (xT.max() + xT.min()).item() / 2
+            y0 = (yT.max() + yT.min()).item() / 2
+
+            def exact_solution(x, y, mu):
+                return 0.25 * mu * (1 - x**2 - y**2)
+
+            def error(x, y, mu):
+                return torch.abs(exact_solution(x, y, mu) - self.get_u(x, y, mu))
+
+            makePlots.edp_contour_param_source(
+                self.rho_min,
+                self.rho_max,
+                self.mu_min,
+                self.mu_max,
+                error,
+                lambda x, y, mu: self.apply_symplecto(x, y, mu),
+                lambda x, y, mu: self.apply_inverse_symplecto(x, y, mu),
+                save_plots,
+                self.fig_storage,
+            )
+
+            print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / 10_000}")

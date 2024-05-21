@@ -18,17 +18,17 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
+from gesonn.com1PINNs import boundary_conditions as bc
+from gesonn.com1PINNs import metricTensors, sourceTerms
 
 # local imports
 from gesonn.out1Plot import makePlots
-from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import metricTensors
-from gesonn.com1PINNs import sourceTerms
 
 try:
     import torchinfo
@@ -47,7 +47,7 @@ print(f"torch loaded; device is {device}; script is poissonParam.py")
 
 class PDE_Forward(nn.DataParallel):
     # constructeur
-    def __init__(self, layer_sizes):
+    def __init__(self, layer_sizes, activation=torch.tanh):
         super(PDE_Forward, self).__init__(nn.Module())
 
         self.hidden_layers = []
@@ -57,14 +57,16 @@ class PDE_Forward(nn.DataParallel):
 
         self.output_layer = nn.Linear(layer_sizes[-1], 1).double()
 
+        self.activation = activation
+
     # forward function -> defines the network structure
     def forward(self, x, y, e):
         inputs = torch.cat([x, y, e], axis=1)
 
-        layer_output = torch.tanh(self.hidden_layers[0](inputs))
+        layer_output = self.activation(self.hidden_layers[0](inputs))
 
         for hidden_layer in self.hidden_layers[1:]:
-            layer_output = torch.tanh(hidden_layer(layer_output))
+            layer_output = self.activation(hidden_layer(layer_output))
 
         # return torch.sigmoid(self.output_layer(layer_output))
         return self.output_layer(layer_output)

@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
-from matplotlib import rc
 import torch
-
 from gesonn.ana1Tests.optimalShapes import translate_to_zero
+from matplotlib import rc
 
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
@@ -14,7 +13,8 @@ print(f"torch loaded; device is {device}")
 def loss(loss_history, save_plots, name):
     _, ax = plt.subplots()
     ax.plot(loss_history)
-    ax.set_yscale("symlog", linthresh=1e-4)
+    history = torch.tensor(loss_history)
+    ax.set_yscale("symlog", linthresh=abs(history).min().item())
     if save_plots:
         plt.savefig(name + "_loss.pdf")
     plt.show()
@@ -80,7 +80,7 @@ def edp_contour(
         y,
         u,
         n_contour,
-        cmap="gist_ncar",
+        cmap="turbo",
         zorder=-9,
     )
 
@@ -166,7 +166,9 @@ def edp_contour_param(
         # mask u outside the domain
         x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
         xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
-        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (xT_inv**2 + yT_inv**2 < rho_min**2)
+        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (
+            xT_inv**2 + yT_inv**2 < rho_min**2
+        )
         u = np.ma.array(u, mask=mask)
 
         # draw the contours
@@ -310,7 +312,9 @@ def edp_contour_bernoulli(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[
+        :, None
+    ]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     x, y = apply_symplecto(x, y)
@@ -337,7 +341,7 @@ def edp_contour_bernoulli(
     x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
     xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
     x_, y_ = x_.detach().cpu(), y_.detach().cpu()
-    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_/a)**2 + (y_/b)**2 < 1)
+    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_ / a) ** 2 + (y_ / b) ** 2 < 1)
     u = np.ma.array(u, mask=mask)
 
     # draw the contours
@@ -371,7 +375,6 @@ def edp_contour_bernoulli(
 
 
 def shape(rho_max, apply_symplecto, save_plots, name):
-
     import numpy as np
     import torch
 
@@ -455,7 +458,6 @@ def param_shape_error(
     save_plots,
     name,
 ):
-
     import numpy as np
     import torch
 
@@ -546,7 +548,6 @@ def param_shape_superposition(
 
 
 def optimality_condition(get_optimality_condition, save_plots, name):
-
     n_pts = 10_000
     if device == "cpu":
         n_pts = 1_000
@@ -556,6 +557,8 @@ def optimality_condition(get_optimality_condition, save_plots, name):
     yT_min, yT_max = yT.min().item(), yT.max().item()
     lx = xT_max - xT_min
     ly = yT_max - yT_min
+
+    optimality_condition = optimality_condition - optimality_condition.mean()
 
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
@@ -579,7 +582,6 @@ def optimality_condition(get_optimality_condition, save_plots, name):
 def optimality_condition_param(
     mu_min, mu_max, get_optimality_condition, save_plots, name
 ):
-
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
@@ -604,6 +606,7 @@ def optimality_condition_param(
         optimality_condition, xT, yT = get_optimality_condition(mu)
         xT_min, xT_max = xT.min().item(), xT.max().item()
         yT_min, yT_max = yT.min().item(), yT.max().item()
+        optimality_condition = optimality_condition - optimality_condition.mean()
         im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
