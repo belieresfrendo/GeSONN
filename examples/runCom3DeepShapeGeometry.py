@@ -33,7 +33,7 @@ if __name__ == "__main__":
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 750
+    epochs = 2000
     n_collocation = 5_000
     new_training = False
     # new_training = True

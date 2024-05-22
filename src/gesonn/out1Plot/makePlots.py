@@ -12,10 +12,16 @@ print(f"torch loaded; device is {device}")
 
 
 def loss(loss_history, save_plots, name):
-    _, ax = plt.subplots()
-    ax.plot(loss_history)
-    history = torch.tensor(loss_history)
-    ax.set_yscale("symlog", linthresh=abs(history).min().item())
+    _, ax = plt.subplots(1, 2, figsize=(10, 5))
+    for key, value in loss_history.items():
+        if min(value) < 0:
+            ax[0].plot(value, label=key)
+            history = torch.tensor(value)
+            ax[0].set_yscale("symlog", linthresh=abs(history[0]).min().item())
+        else:
+            ax[1].semilogy(value, label=key)
+    ax[0].legend()
+    ax[1].legend()
     if save_plots:
         plt.savefig(name + "_loss.pdf")
     plt.show()
@@ -585,16 +591,12 @@ def param_shape_superposition(
 
 def optimality_condition(get_optimality_condition, save_plots, name):
     n_pts = 10_000
-    if device == "cpu":
-        n_pts = 1_000
 
     optimality_condition, xT, yT = get_optimality_condition(n_pts)
     xT_min, xT_max = xT.min().item(), xT.max().item()
     yT_min, yT_max = yT.min().item(), yT.max().item()
     lx = xT_max - xT_min
     ly = yT_max - yT_min
-
-    optimality_condition = optimality_condition - optimality_condition.mean()
 
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
@@ -607,7 +609,6 @@ def optimality_condition(get_optimality_condition, save_plots, name):
         cmap="turbo",
     )
 
-    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
@@ -631,7 +632,7 @@ def optimality_condition_param(
     lx, ly = 0, 0
 
     for mu in mu_list:
-        optimality_condition, xT, yT = get_optimality_condition(mu)
+        _, xT, yT = get_optimality_condition(mu)
         xT_min, xT_max = xT.min().item(), xT.max().item()
         yT_min, yT_max = yT.min().item(), yT.max().item()
         lx = max(lx, xT_max - xT_min)
@@ -644,7 +645,6 @@ def optimality_condition_param(
         optimality_condition, xT, yT = get_optimality_condition(mu)
         xT_min, xT_max = xT.min().item(), xT.max().item()
         yT_min, yT_max = yT.min().item(), yT.max().item()
-        optimality_condition = optimality_condition - optimality_condition.mean()
         im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
@@ -653,7 +653,6 @@ def optimality_condition_param(
             cmap="turbo",
         )
 
-    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
