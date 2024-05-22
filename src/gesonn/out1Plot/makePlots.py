@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import torch
 from gesonn.ana1Tests.optimalShapes import translate_to_zero
 from matplotlib import rc
@@ -18,6 +19,25 @@ def loss(loss_history, save_plots, name):
     if save_plots:
         plt.savefig(name + "_loss.pdf")
     plt.show()
+
+
+def add_colorbar(im, aspect=20, pad_fraction=0.5, **kwargs):
+    """Add a vertical color bar to an image plot."""
+    from mpl_toolkits import axes_grid1
+
+    divider = axes_grid1.make_axes_locatable(im.axes)
+    width = axes_grid1.axes_size.AxesY(im.axes, aspect=1.0 / aspect)
+    pad = axes_grid1.axes_size.Fraction(pad_fraction, width)
+    current_ax = plt.gca()
+    cax = divider.append_axes("right", size=width, pad=pad)
+    plt.sca(current_ax)
+    return im.axes.figure.colorbar(im, cax=cax, **kwargs)
+
+
+def fmt(x, pos):
+    a, b = "{:.1e}".format(x).split("e")
+    b = int(b)
+    return r"${} \times 10^{{{}}}$".format(a, b)
 
 
 def edp_contour(
@@ -93,7 +113,8 @@ def edp_contour(
             alpha=0.5,
             linewidths=0.8,
         )
-    fig.colorbar(im, ax=ax)
+
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
@@ -191,7 +212,8 @@ def edp_contour_param(
                 alpha=0.5,
                 linewidths=0.8,
             )
-        fig.colorbar(im, ax=ax)
+
+        add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
@@ -285,7 +307,8 @@ def edp_contour_param_source(
                 alpha=0.5,
                 linewidths=0.8,
             )
-        fig.colorbar(im, ax=ax)
+
+        add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
@@ -365,7 +388,8 @@ def edp_contour_bernoulli(
             alpha=0.5,
             linewidths=0.8,
         )
-    fig.colorbar(im, ax=ax)
+
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
@@ -571,7 +595,9 @@ def optimality_condition(get_optimality_condition, save_plots, name):
         cmap="turbo",
     )
 
-    fig.colorbar(im, ax=ax)
+    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
     ax.set_aspect("equal")
     if save_plots:
         plt.savefig(name + ".pdf")
@@ -615,7 +641,9 @@ def optimality_condition_param(
             cmap="turbo",
         )
 
-    fig.colorbar(im, ax=ax)
+    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
     ax.set_aspect("equal")
     if save_plots:
         plt.savefig(name + "_superposition.pdf")
@@ -685,7 +713,7 @@ def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
         label="fixed point optimal shape",
     )
     ax.legend(bbox_to_anchor=(0.5, -0.2), loc="upper center", borderaxespad=0.0, ncol=2)
-    fig.colorbar(im, ax=ax)
+    add_colorbar(im)
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)
