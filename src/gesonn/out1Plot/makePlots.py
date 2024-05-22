@@ -20,6 +20,18 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
+def losses(loss_history, tikhonov_history, dirichlet_history, save_plots, name):
+    _, ax = plt.subplots()
+    ax.plot(loss_history, label="loss")
+    ax.plot(tikhonov_history, label="tikhonov")
+    ax.plot(dirichlet_history, label="dirichlet")
+    ax.set_yscale("symlog", linthresh=1e-4)
+    ax.legend()
+    if save_plots:
+        plt.savefig(name + "_losses.pdf")
+    plt.show()
+
+
 def edp_contour(
     rho_min,
     rho_max,
@@ -166,7 +178,9 @@ def edp_contour_param(
         # mask u outside the domain
         x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
         xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
-        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (xT_inv**2 + yT_inv**2 < rho_min**2)
+        mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | (
+            xT_inv**2 + yT_inv**2 < rho_min**2
+        )
         u = np.ma.array(u, mask=mask)
 
         # draw the contours
@@ -310,7 +324,9 @@ def edp_contour_bernoulli(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[
+        :, None
+    ]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     x, y = apply_symplecto(x, y)
@@ -337,7 +353,7 @@ def edp_contour_bernoulli(
     x, y = np.meshgrid(x.detach().cpu(), y.detach().cpu())
     xT_inv, yT_inv = xT_inv.detach().cpu(), yT_inv.detach().cpu()
     x_, y_ = x_.detach().cpu(), y_.detach().cpu()
-    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_/a)**2 + (y_/b)**2 < 1)
+    mask = (xT_inv**2 + yT_inv**2 > rho_max**2) | ((x_ / a) ** 2 + (y_ / b) ** 2 < 1)
     u = np.ma.array(u, mask=mask)
 
     # draw the contours

@@ -24,7 +24,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 
 # local imports
 from gesonn.com1PINNs import boundary_conditions as bc
-from gesonn.com1PINNs import poissonSTANH as poisson
+from gesonn.com1PINNs import poisson
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
 
@@ -430,14 +430,14 @@ class Geo_Net:
                     self.y_collocation,
                 )
 
-                dirichlet_loss = 0.5 * grad_u_2
-                loss = dirichlet_loss
+                self.dirichlet_loss = 0.5 * grad_u_2.sum() * self.Vol / n_pts
+                loss = self.dirichlet_loss
 
                 if self.pen_tikhonov != 0:
-                    tikhonov = grad_u_2
-                    loss += self.pen_tikhonov * tikhonov**2
+                    self.tikhonov = (grad_u_2 **2).sum() * self.Vol / n_pts
+                    loss += self.pen_tikhonov * self.tikhonov
 
-                self.loss = loss.sum() * self.Vol / n_collocation
+                self.loss = loss
 
             self.loss.backward()
             self.optimizer.step()
@@ -446,7 +446,10 @@ class Geo_Net:
             self.loss_history.append(self.loss.item())
 
             if epoch % 500 == 0:
-                print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current lr = {self.scheduler.get_lr()[0]:5.2e}")
+                string = f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current lr = {self.scheduler.get_lr()[0]:5.2e}"
+                if self.pen_tikhonov != 0:
+                    string += f", Dirichlet = {self.dirichlet_loss:3.2e}, Tikhonov = {self.tikhonov:3.2e}"
+                print(string)
 
             if self.loss.item() < best_loss_value:
                 print(f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}, current lr = {self.scheduler.get_lr()[0]:5.2e}")

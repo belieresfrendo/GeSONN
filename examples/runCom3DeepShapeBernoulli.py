@@ -21,16 +21,16 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 1e-3,
         "sympnet_learning_rate": 1e-3,
-        "layer_sizes": [2, 10, 20, 40, 80, 160, 80, 20, 10, 1],
-        "nb_of_networks": 4,
-        "networks_size": 8,
+        "layer_sizes": [2, 40, 80, 40, 1],
+        "nb_of_networks": 2,
+        "networks_size": 5,
         "rho_min": 0.5,
         "rho_max": 1,
         "file_name": "bernoulli_SIAM",
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
-        "tikhonov" : 0,
+        "tikhonov" : 1e-2,
     }
 
     epochs = 1_000

@@ -2,6 +2,7 @@
 import os
 import torch
 import pandas as pd
+import math
 
 # local imports
 from gesonn.out1Plot import makePlots
@@ -155,46 +156,72 @@ def main_reference_test(testsDict):
 
         u_pred = network.get_u(x, y)
         u_fem = torch.tensor(U_fem)[:, None][cond][:, None]
-        err = torch.log(torch.abs(u_pred - u_fem)) * (x**2 + y**2 < network.rho_max**2)
+        err = (u_pred - u_fem) * (x**2 + y**2 < network.rho_max**2)
 
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(3, 1, figsize=(15 * lx / ly, 15 * ly / lx))
+        fig, ax = plt.subplots(1, 1, figsize=(5 * lx / ly, 5 * ly / lx))
 
-        im = ax[0].scatter(
+        im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
             s=5,
             c=u_fem.detach().cpu(),
-            cmap="turbo",
+            cmap="gist_ncar",
             label="ff++",
         )
-        fig.colorbar(im, ax=ax[0])
-        ax[0].set_aspect("equal")
-        ax[0].legend()
+        fig.colorbar(im, ax=ax)
+        ax.set_aspect("equal")
+        plt.savefig("./../outputs/deepShape/img/EDP_FF" + simuDict["file_name"] + ".pdf")
 
-        im = ax[1].scatter(
+
+        fig, ax = plt.subplots(1, 1, figsize=(5 * lx / ly, 5 * ly / lx))
+        im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
             s=5,
             c=u_pred.detach().cpu(),
-            cmap="turbo",
+            cmap="gist_ncar",
             label="gesonn",
         )
-        fig.colorbar(im, ax=ax[1])
-        ax[1].set_aspect("equal")
-        ax[1].legend()
+        fig.colorbar(im, ax=ax)
+        ax.set_aspect("equal")
+        plt.savefig("./../outputs/deepShape/img/EDP_GESONN" + simuDict["file_name"] + ".pdf")
 
-        im = ax[2].scatter(
+
+        fig, ax = plt.subplots(1, 1, figsize=(5 * lx / ly, 5 * ly / lx))
+        im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
             s=5,
             c=err.detach().cpu(),
-            cmap="turbo",
-            label="error (log)",
+            cmap="gist_ncar",
+            label="error",
         )
-        fig.colorbar(im, ax=ax[2])
-        ax[2].set_aspect("equal")
-        ax[2].legend()
+        fig.colorbar(im, ax=ax)
+        ax.set_aspect("equal")
+        plt.savefig("./../outputs/deepShape/img/ERROR_GESONN_EDP" + simuDict["file_name"] + ".pdf")
+
+
+        n_border = 10_000
+        theta = torch.linspace(0, 2*torch.pi, n_border, requires_grad=True)[:, None]
+        x_border, y_border = network.rho_max * torch.cos(theta), network.rho_max * torch.sin(theta)
+        xT_border, yT_border = network.apply_symplecto(x_border, y_border)
+        dn_u = network.get_dn_u(x_border, y_border)
+        fig, ax = plt.subplots(1, 1, figsize=(5 * lx / ly, 5 * ly / lx))
+        im = ax.scatter(
+            xT_border.detach().cpu(),
+            yT_border.detach().cpu(),
+            s=1,
+            c=dn_u.detach().cpu(),
+            cmap="gist_ncar",
+            label="error",
+        )
+        fig.colorbar(im, ax=ax)
+        ax.set_aspect("equal")
+        plt.savefig("./../outputs/deepShape/img/OPTIMALITY_CONDITION_GESONN_" + simuDict["file_name"] + ".pdf")
 
         plt.show()
+
+    print(f"Hausdorff distance: {hausdorff_error:3.2e}")
+    print(f"L2 error: {math.sqrt((err**2).sum()/(xT.size()[0]) * (xT_max - xT_min) * (yT_max - yT_min)):3.2e}")
