@@ -11,32 +11,34 @@ print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryPara
 
 if __name__ == "__main__":
     train = True
-    train = False
+    # train = False
 
     # ==============================================================
     # Parameters to be modified freely by the user
     # ==============================================================
 
     deepGeoDict = {
-        "pde_learning_rate": 1e-2,
-        "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [3, 10, 20, 80, 20, 10, 1],
-        "nb_of_networks": 4,
+        "pde_learning_rate": 5e-3,
+        "sympnet_learning_rate": 5e-3,
+        "layer_sizes": [3, 20, 40, 40, 20, 1],
+        "nb_of_networks": 6,
         "networks_size": 8,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
-        "mu_max": 1.5,
-        "file_name": "default",
+        "mu_max": 2.0,
+        "file_name": "SIAM_bizaroid",
         "to_be_trained": True,
-        "source_term": "ellipse",
+        "source_term": "bizaroid",
         "boundary_condition": "homogeneous_dirichlet",
+        "pinn_activation": torch.tanh,
+        "sympnet_activation": torch.tanh,
     }
 
-    epochs = 1000
+    epochs = 1_000
     n_collocation = 10_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
@@ -48,7 +50,9 @@ if __name__ == "__main__":
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/deepShape/net/param_" + deepGeoDict["file_name"] + ".pth"
+                    "./../outputs/deepShape/net/param_"
+                    + deepGeoDict["file_name"]
+                    + ".pth"
                 )
             except FileNotFoundError:
                 pass

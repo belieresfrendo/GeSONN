@@ -16,14 +16,14 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 # ----------------------------------------------------------------------
 
 # imports
-import os
 import copy
+import os
 import time
+
 import torch
 import torch.nn as nn
 
 # local imports
-
 from gesonn.com1PINNs import metricTensors
 from gesonn.out1Plot import makePlots
 
@@ -45,7 +45,7 @@ print(f"torch loaded; device is {device}; script is G.py")
 
 class Symp_Net_Forward(nn.DataParallel):
     # constructeur
-    def __init__(self, n):
+    def __init__(self, n, activation=torch.sigmoid):
         super(Symp_Net_Forward, self).__init__(nn.Module())
         min_value = -1
         max_value = 1
@@ -73,6 +73,8 @@ class Symp_Net_Forward(nn.DataParallel):
             * torch.rand(size, dtype=torch.double, device=device)
         )
 
+        self.activation = activation
+
     # forward function -> defines the network structure
     def forward(self, x_or_y, mu):
         Kx_or_y = torch.einsum("ik,jk->ijk", self.k, x_or_y)
@@ -81,7 +83,7 @@ class Symp_Net_Forward(nn.DataParallel):
         B = torch.einsum("ik,jk->ijk", self.b, ones)
         A = torch.einsum("ik,jk->ijk", self.a, ones)
         Kmu = torch.einsum("ik,jk->ijk", self.k_mu, mu)
-        Asigma = A * torch.tanh(Kx_or_y + B + Kmu)
+        Asigma = A * self.activation(Kx_or_y + B + Kmu)
         return torch.einsum("ik,ijk->jk", self.k, Asigma)
 
 
@@ -401,31 +403,31 @@ class Symp_Net:
 
         if plot_history:
             self.plot_result(save_plots)
-        
+
         self.get_stats_mu(n=1_000)
 
         return tps2 - tps1
-    
 
     @staticmethod
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def get_hausdorff_distance(self, mu, n_pts=10_000):
-
-        import scipy.spatial.distance as dist
         import numpy as np
+        import scipy.spatial.distance as dist
 
         self.make_collocation(n_pts)
 
         x_ex, y_ex = metricTensors.apply_symplecto(
             self.x_collocation,
             self.y_collocation,
-            mu=mu*torch.ones_like(self.x_collocation),
+            mu=mu * torch.ones_like(self.x_collocation),
             name=self.name_symplecto,
         )
         x_net, y_net = self.apply_symplecto(
-            self.x_collocation, self.y_collocation, mu*torch.ones_like(self.x_collocation)
+            self.x_collocation,
+            self.y_collocation,
+            mu * torch.ones_like(self.x_collocation),
         )
 
         X_net = []
@@ -444,7 +446,6 @@ class Symp_Net:
         )
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         makePlots.param_shape_error(
@@ -470,14 +471,13 @@ class Symp_Net:
         )
 
     def get_stats_mu(self, n=1_000):
-
         mus = torch.linspace(self.mu_min, self.mu_max, n)
         print(mus.size())
         hausdorff_distances = torch.zeros(n)
 
-        for i in range(n) :
+        for i in range(n):
             hausdorff_distances[i] = self.get_hausdorff_distance(mus[i])
-        
+
         print(f"Mean Haussdorf distance: {hausdorff_distances.mean():3.2e}")
         print(f"Max Haussdorf distance: {hausdorff_distances.max():3.2e}")
         print(f"Min Haussdorf distance: {hausdorff_distances.min():3.2e}")

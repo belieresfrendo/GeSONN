@@ -27,13 +27,6 @@ import torch.nn as nn
 from gesonn.com1PINNs import metricTensors
 from gesonn.out1Plot import makePlots
 
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is G.py")
 
@@ -45,7 +38,7 @@ print(f"torch loaded; device is {device}; script is G.py")
 
 class Symp_Net_Forward(nn.DataParallel):
     # constructeur
-    def __init__(self, n):
+    def __init__(self, n, activation=torch.sigmoid):
         super(Symp_Net_Forward, self).__init__(nn.Module())
         min_value = -1
         max_value = 1
@@ -65,6 +58,8 @@ class Symp_Net_Forward(nn.DataParallel):
             + (max_value - min_value) * torch.rand(n, dtype=torch.double, device=device)
         )
 
+        self.activation = activation
+
     # forward function -> defines the network structure
     def forward(self, x_or_y):
         Kx_or_y = torch.einsum("ik,jk->ijk", self.K, x_or_y)
@@ -72,7 +67,7 @@ class Symp_Net_Forward(nn.DataParallel):
         ones = torch.ones(shape_x_or_y, device=device)
         B = torch.einsum("ik,jk->ijk", self.b, ones)
         A = torch.einsum("ik,jk->ijk", self.a, ones)
-        Asigma = A * torch.tanh(Kx_or_y + B)
+        Asigma = A * self.activation(Kx_or_y + B)
         return torch.einsum("ik,ijk->jk", self.K, Asigma)
 
 
@@ -130,25 +125,25 @@ class Symp_Net:
     def __init__(self, **kwargs):
         SympNetsDict = kwargs.get("SympNetsDict", self.DEFAULT_SYMPNETS_DICT)
 
-        if SympNetsDict.get("learning_rate") == None:
+        if SympNetsDict.get("learning_rate") is None:
             SympNetsDict["learning_rate"] = self.DEFAULT_SYMPNETS_DICT["learning_rate"]
-        if SympNetsDict.get("nb_of_networks") == None:
+        if SympNetsDict.get("nb_of_networks") is None:
             SympNetsDict["nb_of_networks"] = self.DEFAULT_SYMPNETS_DICT[
                 "nb_of_networks"
             ]
-        if SympNetsDict.get("networks_size") == None:
+        if SympNetsDict.get("networks_size") is None:
             SympNetsDict["networks_size"] = self.DEFAULT_SYMPNETS_DICT["networks_size"]
-        if SympNetsDict.get("rho_min") == None:
+        if SympNetsDict.get("rho_min") is None:
             SympNetsDict["rho_min"] = self.DEFAULT_SYMPNETS_DICT["rho_min"]
-        if SympNetsDict.get("rho_max") == None:
+        if SympNetsDict.get("rho_max") is None:
             SympNetsDict["rho_max"] = self.DEFAULT_SYMPNETS_DICT["rho_max"]
-        if SympNetsDict.get("file_name") == None:
+        if SympNetsDict.get("file_name") is None:
             SympNetsDict["file_name"] = self.DEFAULT_SYMPNETS_DICT["file_name"]
-        if SympNetsDict.get("symplecto_name") == None:
+        if SympNetsDict.get("symplecto_name") is None:
             SympNetsDict["symplecto_name"] = self.DEFAULT_SYMPNETS_DICT[
                 "symplecto_name"
             ]
-        if SympNetsDict.get("to_be_trained") == None:
+        if SympNetsDict.get("to_be_trained") is None:
             SympNetsDict["to_be_trained"] = self.DEFAULT_SYMPNETS_DICT["to_be_trained"]
 
         # Storage file
@@ -416,7 +411,6 @@ class Symp_Net:
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
     def get_hausdorff_distance(self, n_pts=10_000):
-
         import numpy as np
         import scipy.spatial.distance as dist
 
@@ -443,7 +437,6 @@ class Symp_Net:
         )
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         makePlots.shape(
@@ -456,8 +449,8 @@ class Symp_Net:
         makePlots.shape_error(
             self.rho_max,
             lambda x, y: self.apply_symplecto(x, y),
-            lambda x,y : metricTensors.apply_symplecto(x,y,name=self.name_symplecto),
-            lambda : self.get_hausdorff_distance(),
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda: self.get_hausdorff_distance(),
             save_plots,
             self.fig_storage,
         )

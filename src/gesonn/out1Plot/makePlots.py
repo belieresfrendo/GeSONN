@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-from matplotlib import rc
+import matplotlib.ticker as ticker
 import torch
-
 from gesonn.ana1Tests.optimalShapes import translate_to_zero
+from matplotlib import rc
 
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
 rc("text", usetex=True)
@@ -14,7 +14,8 @@ print(f"torch loaded; device is {device}")
 def loss(loss_history, save_plots, name):
     _, ax = plt.subplots()
     ax.plot(loss_history)
-    ax.set_yscale("symlog", linthresh=1e-4)
+    history = torch.tensor(loss_history)
+    ax.set_yscale("symlog", linthresh=abs(history).min().item())
     if save_plots:
         plt.savefig(name + "_loss.pdf")
     plt.show()
@@ -30,6 +31,25 @@ def losses(loss_history, tikhonov_history, dirichlet_history, save_plots, name):
     if save_plots:
         plt.savefig(name + "_losses.pdf")
     plt.show()
+
+
+def add_colorbar(im, aspect=20, pad_fraction=0.5, **kwargs):
+    """Add a vertical color bar to an image plot."""
+    from mpl_toolkits import axes_grid1
+
+    divider = axes_grid1.make_axes_locatable(im.axes)
+    width = axes_grid1.axes_size.AxesY(im.axes, aspect=1.0 / aspect)
+    pad = axes_grid1.axes_size.Fraction(pad_fraction, width)
+    current_ax = plt.gca()
+    cax = divider.append_axes("right", size=width, pad=pad)
+    plt.sca(current_ax)
+    return im.axes.figure.colorbar(im, cax=cax, **kwargs)
+
+
+def fmt(x, pos):
+    a, b = "{:.1e}".format(x).split("e")
+    b = int(b)
+    return r"${} \times 10^{{{}}}$".format(a, b)
 
 
 def edp_contour(
@@ -92,7 +112,7 @@ def edp_contour(
         y,
         u,
         n_contour,
-        cmap="gist_ncar",
+        cmap="turbo",
         zorder=-9,
     )
 
@@ -105,7 +125,8 @@ def edp_contour(
             alpha=0.5,
             linewidths=0.8,
         )
-    fig.colorbar(im, ax=ax)
+
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
@@ -203,7 +224,8 @@ def edp_contour_param(
                 alpha=0.5,
                 linewidths=0.8,
             )
-        fig.colorbar(im, ax=ax)
+
+        add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
@@ -297,7 +319,8 @@ def edp_contour_param_source(
                 alpha=0.5,
                 linewidths=0.8,
             )
-        fig.colorbar(im, ax=ax)
+
+        add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
@@ -377,7 +400,8 @@ def edp_contour_bernoulli(
             alpha=0.5,
             linewidths=0.8,
         )
-    fig.colorbar(im, ax=ax)
+
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
@@ -387,7 +411,6 @@ def edp_contour_bernoulli(
 
 
 def shape(rho_max, apply_symplecto, save_plots, name):
-
     import numpy as np
     import torch
 
@@ -471,7 +494,6 @@ def param_shape_error(
     save_plots,
     name,
 ):
-
     import numpy as np
     import torch
 
@@ -562,7 +584,6 @@ def param_shape_superposition(
 
 
 def optimality_condition(get_optimality_condition, save_plots, name):
-
     n_pts = 10_000
     if device == "cpu":
         n_pts = 1_000
@@ -572,6 +593,8 @@ def optimality_condition(get_optimality_condition, save_plots, name):
     yT_min, yT_max = yT.min().item(), yT.max().item()
     lx = xT_max - xT_min
     ly = yT_max - yT_min
+
+    optimality_condition = optimality_condition - optimality_condition.mean()
 
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
@@ -584,7 +607,9 @@ def optimality_condition(get_optimality_condition, save_plots, name):
         cmap="turbo",
     )
 
-    fig.colorbar(im, ax=ax)
+    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
     ax.set_aspect("equal")
     if save_plots:
         plt.savefig(name + ".pdf")
@@ -595,7 +620,6 @@ def optimality_condition(get_optimality_condition, save_plots, name):
 def optimality_condition_param(
     mu_min, mu_max, get_optimality_condition, save_plots, name
 ):
-
     mu_list = [
         mu_min,
         0.75 * mu_min + 0.25 * mu_max,
@@ -620,6 +644,7 @@ def optimality_condition_param(
         optimality_condition, xT, yT = get_optimality_condition(mu)
         xT_min, xT_max = xT.min().item(), xT.max().item()
         yT_min, yT_max = yT.min().item(), yT.max().item()
+        optimality_condition = optimality_condition - optimality_condition.mean()
         im = ax.scatter(
             xT.detach().cpu(),
             yT.detach().cpu(),
@@ -628,7 +653,9 @@ def optimality_condition_param(
             cmap="turbo",
         )
 
-    fig.colorbar(im, ax=ax)
+    format = "%.1e" if abs(optimality_condition).max() < 1e-2 else None
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
     ax.set_aspect("equal")
     if save_plots:
         plt.savefig(name + "_superposition.pdf")
@@ -698,7 +725,7 @@ def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
         label="fixed point optimal shape",
     )
     ax.legend(bbox_to_anchor=(0.5, -0.2), loc="upper center", borderaxespad=0.0, ncol=2)
-    fig.colorbar(im, ax=ax)
+    add_colorbar(im)
     ax.set_aspect("equal")
     if title is not None:
         ax.set_title(title)

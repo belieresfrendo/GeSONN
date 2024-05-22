@@ -29,13 +29,6 @@ from gesonn.com1PINNs import metricTensors, sourceTerms
 # local imports
 from gesonn.out1Plot import makePlots
 
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is poisson.py")
 
@@ -46,7 +39,7 @@ print(f"torch loaded; device is {device}; script is poisson.py")
 
 class PDE_Forward(nn.DataParallel):
     # constructeur
-    def __init__(self, layer_sizes):
+    def __init__(self, layer_sizes, activation=torch.tanh):
         super(PDE_Forward, self).__init__(nn.Module())
 
         self.hidden_layers = []
@@ -56,16 +49,17 @@ class PDE_Forward(nn.DataParallel):
 
         self.output_layer = nn.Linear(layer_sizes[-1], 1).double()
 
+        self.activation = activation
+
     # forward function -> defines the network structure
     def forward(self, x, y):
         inputs = torch.cat([x, y], axis=1)
 
-        layer_output = torch.tanh(self.hidden_layers[0](inputs))
+        layer_output = self.activation(self.hidden_layers[0](inputs))
 
         for hidden_layer in self.hidden_layers[1:]:
-            layer_output = torch.tanh(hidden_layer(layer_output))
+            layer_output = self.activation(hidden_layer(layer_output))
 
-        # return torch.sigmoid(self.output_layer(layer_output))
         return self.output_layer(layer_output)
 
 
@@ -93,27 +87,27 @@ class PINNs:
     def __init__(self, **kwargs):
         PINNsDict = kwargs.get("PINNsDict", self.DEFAULT_PINNS_DICT)
 
-        if PINNsDict.get("learning_rate") == None:
+        if PINNsDict.get("learning_rate") is None:
             PINNsDict["learning_rate"] = self.DEFAULT_PINNS_DICT["learning_rate"]
-        if PINNsDict.get("layer_sizes") == None:
+        if PINNsDict.get("layer_sizes") is None:
             PINNsDict["layer_sizes"] = self.DEFAULT_PINNS_DICT["layer_sizes"]
-        if PINNsDict.get("rho_min") == None:
+        if PINNsDict.get("rho_min") is None:
             PINNsDict["rho_min"] = self.DEFAULT_PINNS_DICT["rho_min"]
-        if PINNsDict.get("rho_max") == None:
+        if PINNsDict.get("rho_max") is None:
             PINNsDict["rho_max"] = self.DEFAULT_PINNS_DICT["rho_max"]
-        if PINNsDict.get("file_name") == None:
+        if PINNsDict.get("file_name") is None:
             PINNsDict["file_name"] = self.DEFAULT_PINNS_DICT["file_name"]
-        if PINNsDict.get("symplecto_name") == None:
+        if PINNsDict.get("symplecto_name") is None:
             PINNsDict["symplecto_name"] = self.DEFAULT_PINNS_DICT["symplecto_name"]
-        if PINNsDict.get("source_term") == None:
+        if PINNsDict.get("source_term") is None:
             PINNsDict["source_term"] = self.DEFAULT_PINNS_DICT["source_term"]
-        if PINNsDict.get("boundary_condition") == None:
+        if PINNsDict.get("boundary_condition") is None:
             PINNsDict["boundary_condition"] = self.DEFAULT_PINNS_DICT[
                 "boundary_condition"
             ]
-        if PINNsDict.get("tikhonov") == None:
+        if PINNsDict.get("tikhonov") is None:
             PINNsDict["tikhonov"] = self.DEFAULT_PINNS_DICT["tikhonov"]
-        if PINNsDict.get("to_be_trained") == None:
+        if PINNsDict.get("to_be_trained") is None:
             PINNsDict["to_be_trained"] = self.DEFAULT_PINNS_DICT["to_be_trained"]
 
         # Storage file
@@ -406,7 +400,6 @@ class PINNs:
         return tps2 - tps1
 
     def plot_result(self, save_plots):
-
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         n_visu = 768
