@@ -35,7 +35,7 @@ SIAM_exp_backup.pth
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 750
+    epochs = 9000
     n_collocation = 5_000
 
 param_SIAM_constant_backup.pth
