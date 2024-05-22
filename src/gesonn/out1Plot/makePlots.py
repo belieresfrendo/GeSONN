@@ -4,7 +4,7 @@ import torch
 from gesonn.ana1Tests.optimalShapes import translate_to_zero
 from matplotlib import rc
 
-rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 15})
+rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 24})
 rc("text", usetex=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -13,6 +13,10 @@ print(f"torch loaded; device is {device}")
 
 def loss(loss_history, save_plots, name):
     _, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    if isinstance(loss_history, list):
+        loss_history = {"loss": loss_history}
+
     for key, value in loss_history.items():
         if min(value) < 0:
             ax[0].plot(value, label=key)
@@ -20,10 +24,13 @@ def loss(loss_history, save_plots, name):
             ax[0].set_yscale("symlog", linthresh=abs(history[0]).min().item())
         else:
             ax[1].semilogy(value, label=key)
+
     ax[0].legend()
     ax[1].legend()
+
     if save_plots:
-        plt.savefig(name + "_loss.pdf")
+        plt.savefig(name + "_loss.pdf", bbox_inches="tight")
+
     plt.show()
 
 
@@ -35,7 +42,7 @@ def losses(loss_history, tikhonov_history, dirichlet_history, save_plots, name):
     ax.set_yscale("symlog", linthresh=1e-4)
     ax.legend()
     if save_plots:
-        plt.savefig(name + "_losses.pdf")
+        plt.savefig(name + "_losses.pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -137,7 +144,7 @@ def edp_contour(
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
     if save_plots:
-        plt.savefig(name + ".pdf")
+        plt.savefig(name + ".pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -236,7 +243,7 @@ def edp_contour_param(
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
         if save_plots:
-            plt.savefig(name + f"_mu_{mu:3.2f}.pdf")
+            plt.savefig(name + f"_mu_{mu:3.2f}.pdf", bbox_inches="tight")
         plt.show()
 
 
@@ -331,7 +338,7 @@ def edp_contour_param_source(
         ax.set_aspect("equal")
         plt.gca().set_rasterization_zorder(-1)
         if save_plots:
-            plt.savefig(name + f"_mu_{mu:3.2f}.pdf")
+            plt.savefig(name + f"_mu_{mu:3.2f}.pdf", bbox_inches="tight")
         plt.show()
 
 
@@ -412,7 +419,7 @@ def edp_contour_bernoulli(
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
     if save_plots:
-        plt.savefig(name + ".pdf")
+        plt.savefig(name + ".pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -440,7 +447,7 @@ def shape(rho_max, apply_symplecto, save_plots, name):
     )
     ax.set_aspect("equal")
     if save_plots:
-        plt.savefig(name + ".pdf")
+        plt.savefig(name + ".pdf", bbox_inches="tight")
 
     plt.show()
 
@@ -484,10 +491,15 @@ def shape_error(
     )
 
     if save_plots:
-        plt.savefig(name + "_error.pdf")
+        plt.savefig(name + "_error.pdf", bbox_inches="tight")
     plt.show()
 
-    print(f"Haussdorf distance: {get_hausdorff_distance():3.2e}")
+    try:
+        print(f"Haussdorf distance: {get_hausdorff_distance():3.2e}")
+    except TypeError:
+        print(
+            f"Haussdorf distance: {get_hausdorff_distance(apply_symplecto, apply_exact_symplecto):3.2e}"
+        )
 
 
 def param_shape_error(
@@ -532,7 +544,7 @@ def param_shape_error(
         ax.scatter(xT_pred.detach().cpu(), yT_pred.detach().cpu(), s=1, c="green")
         ax.set_aspect("equal")
         if save_plots:
-            plt.savefig(name + f"_mu{mu:3.2f}.pdf")
+            plt.savefig(name + f"_mu{mu:3.2f}.pdf", bbox_inches="tight")
 
         plt.show()
 
@@ -585,7 +597,7 @@ def param_shape_superposition(
         )
 
     if save_plots:
-        plt.savefig(name + "_superposition.pdf")
+        plt.savefig(name + "_superposition.pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -613,9 +625,11 @@ def optimality_condition(get_optimality_condition, save_plots, name):
 
     ax.set_aspect("equal")
     if save_plots:
-        plt.savefig(name + ".pdf")
+        plt.savefig(name + ".pdf", bbox_inches="tight")
 
     plt.show()
+
+    print(f"Variance of the optimality condition: {optimality_condition.var()}")
 
 
 def optimality_condition_param(
@@ -657,7 +671,7 @@ def optimality_condition_param(
 
     ax.set_aspect("equal")
     if save_plots:
-        plt.savefig(name + "_superposition.pdf")
+        plt.savefig(name + "_superposition.pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -702,7 +716,7 @@ def deep_shape_error(
     )
 
     if save_plots:
-        plt.savefig(name + "_error.pdf")
+        plt.savefig(name + "_error.pdf", bbox_inches="tight")
     plt.show()
 
 
@@ -729,6 +743,6 @@ def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
     if title is not None:
         ax.set_title(title)
     if save_plots:
-        plt.savefig(name + "_edp_error.pdf")
+        plt.savefig(name + "_edp_error.pdf", bbox_inches="tight")
 
     plt.show()

@@ -169,6 +169,13 @@ class Geo_Net:
             optimizers[i].load_state_dict(state_dict)
             i += 1
 
+    @staticmethod
+    def try_to_load(checkpoint, key):
+        try:
+            return checkpoint[key]
+        except KeyError:
+            return None
+
     def load(self, file_name):
         self.loss_history = {}
 
@@ -196,13 +203,11 @@ class Geo_Net:
             self.u_net.load_state_dict(checkpoint["u_model_state_dict"])
             self.u_optimizer.load_state_dict(checkpoint["u_optimizer_state_dict"])
 
-            self.loss = checkpoint["loss"]
-            self.optimality_condition = checkpoint["optimality_condition"]
-
-            try:
-                self.loss_history = checkpoint["loss_history"]
-            except KeyError:
-                pass
+            self.loss = self.try_to_load(checkpoint, "loss")
+            self.optimality_condition = self.try_to_load(
+                checkpoint, "optimality_condition"
+            )
+            self.loss_history = self.try_to_load(checkpoint, "loss_history")
 
             self.to_be_trained = False
 
@@ -547,6 +552,32 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
+    def get_hausdorff_distance(
+        self, approximate_symplecto, exact_symplecto, n_pts=10_000
+    ):
+        import numpy as np
+        import scipy.spatial.distance as dist
+
+        self.make_collocation(n_pts)
+
+        x_ex, y_ex = exact_symplecto(self.x_collocation, self.y_collocation)
+        x_net, y_net = approximate_symplecto(self.x_collocation, self.y_collocation)
+
+        X_net = []
+        X_ex = []
+        for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+            X_net.append((x, y))
+        for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+            X_ex.append((x, y))
+
+        X_net = np.array(X_net)
+        X_ex = np.array(X_ex)
+
+        return max(
+            dist.directed_hausdorff(X_net, X_ex)[0],
+            dist.directed_hausdorff(X_ex, X_net)[0],
+        )
+
     def plot_result(self, save_plots):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
@@ -557,25 +588,26 @@ class Geo_Net:
             lambda x, y: self.apply_symplecto(x, y),
             lambda x, y: self.apply_inverse_symplecto(x, y),
             save_plots,
-            self.fig_storage,
+            f"{self.fig_storage}_solution",
         )
 
         makePlots.optimality_condition(
             self.get_optimality_condition,
             save_plots,
-            self.fig_storage,
+            f"{self.fig_storage}_optimality",
         )
 
         if self.source_term == "one":
+            n_pts = 10_000
             theta = torch.linspace(
-                0, 2 * torch.pi, 10_000, requires_grad=True, dtype=torch.float64
+                0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64
             )[:, None]
             x = self.rho_max * torch.cos(theta)
             y = self.rho_max * torch.sin(theta)
             xT, yT = self.apply_symplecto(x, y)
 
-            x0 = (xT.max() + xT.min()).item() / 2
-            y0 = (yT.max() + yT.min()).item() / 2
+            x0 = xT.sum() / n_pts
+            y0 = yT.sum() / n_pts
 
             def exact_solution(x, y):
                 return 0.25 * (1 - x**2 - y**2)
@@ -590,7 +622,80 @@ class Geo_Net:
                 lambda x, y: self.apply_symplecto(x, y),
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
-                self.fig_storage,
+                f"{self.fig_storage}_solution_error",
             )
 
-            print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / 10_000}")
+            makePlots.shape_error(
+                self.rho_max,
+                lambda x, y: self.apply_symplecto(x, y),
+                lambda x, y: (x + x0, y + y0),
+                self.get_hausdorff_distance,
+                save_plots,
+                f"{self.fig_storage}_shape_error",
+            )
+
+            print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / n_pts}")
+
+            self.make_collocation(n_pts)
+            MSE = error(self.x_collocation, self.y_collocation) ** 2
+            L2_error = torch.sqrt(MSE.sum() / n_pts)
+            print(f"L2 error between true and approximate solution: {L2_error}")
+
+    def get_fv_with_random_function(self, n_pts=50_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        self.make_collocation(n_pts)
+        # x, y, mu = self.x_collocation, self.y_collocation, self.mu_collocation
+        x, y = self.x_collocation, self.y_collocation
+
+        # u = self.get_u(x, y, mu)
+        u = self.get_u(x, y)
+        a, b, c, d = self.get_metric_tensor(x, y)
+
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+
+        alpha = bc.compute_bc_mul(
+            x, y, self.rho_min, self.rho_max, name=self.boundary_condition
+        )
+
+        coeff = torch.rand(6)
+        constant = coeff[0]
+        linear = coeff[1] * x + coeff[2] * y
+        quadratic = coeff[3] * x**2 + coeff[4] * x * y + coeff[5] * y**2
+        polynomial = constant + linear + quadratic
+
+        phi = polynomial * alpha
+
+        dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
+        dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
+
+        A_grad_u_grad_phi = (a * dx_u + b * dy_u) * dx_phi + (
+            c * dx_u + d * dy_u
+        ) * dy_phi
+
+        f = sourceTerms.get_f(
+            *self.apply_symplecto(x, y),
+            # mu=mu,
+            name=self.source_term,
+        )
+
+        return (A_grad_u_grad_phi - f * phi).sum().item() / x.shape[0] * self.Vol
+
+    def compute_stats(self, n_pts=50_000, n_random=1_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        assert isinstance(n_random, int) and n_random > 0
+
+        residuals = torch.zeros(n_random)
+        for i in range(n_random):
+            if i % 100 == 0:
+                print(f"Computing residuals... {int(100 * i / n_random)}% done")
+            residuals[i] = self.get_fv_with_random_function(n_pts)
+
+        residuals = torch.abs(residuals)
+
+        print(f"\nMean residual: {residuals.mean():3.2e}")
+        print(f"Max residual: {residuals.max():3.2e}")
+        print(f"Min residual: {residuals.min():3.2e}")
+        print(f"Variance residual: {residuals.var():3.2e}")
+
+        return residuals
