@@ -641,6 +641,53 @@ class Geo_Net:
             L2_error = torch.sqrt(MSE.sum() / n_pts)
             print(f"L2 error between true and approximate solution: {L2_error}")
 
+        elif self.source_term == "exp":
+            print(
+                "TODO: aller voir dans deepReference.py pour récupérer les données de FreeFem++ et en faire une solution exacte, peut-être avec scipy.griddata"
+            )
+
+            def exact_solution(x, y):
+                import pandas as pd
+                import scipy.interpolate as interp
+
+                u_fem_path = "./../benchmark/optimal_edp/ff_edp_exp.csv"
+                u_dict = pd.read_csv(u_fem_path, delimiter=";")
+                X = torch.tensor(u_dict["x"])[:, None]
+                Y = torch.tensor(u_dict["y"])[:, None]
+                X, Y = self.apply_inverse_symplecto(X, Y)
+                U_fem = u_dict["u"]
+                return torch.tensor(
+                    interp.griddata(
+                        (X[:, 0].detach().cpu(), Y[:, 0].detach().cpu()),
+                        U_fem,
+                        (x.detach().cpu(), y.detach().cpu()),
+                        method="linear",
+                    )
+                )
+
+            def error(x, y):
+                return torch.abs(exact_solution(x, y) - self.get_u(x, y))
+
+            makePlots.edp_contour(
+                self.rho_min,
+                self.rho_max,
+                exact_solution,
+                lambda x, y: self.apply_symplecto(x, y),
+                lambda x, y: self.apply_inverse_symplecto(x, y),
+                save_plots,
+                f"{self.fig_storage}_exact_solution",
+            )
+
+            makePlots.edp_contour(
+                self.rho_min,
+                self.rho_max,
+                error,
+                lambda x, y: self.apply_symplecto(x, y),
+                lambda x, y: self.apply_inverse_symplecto(x, y),
+                save_plots,
+                f"{self.fig_storage}_solution_error",
+            )
+
     def get_fv_with_random_function(self, n_pts=50_000):
         assert isinstance(n_pts, int) and n_pts > 0
         self.make_collocation(n_pts)
