@@ -468,6 +468,7 @@ def shape(rho_max, apply_symplecto, save_plots, name):
         s=1,
     )
     ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + ".pdf", bbox_inches="tight")
 
@@ -512,6 +513,8 @@ def shape_error(
         c="green",
     )
 
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + "_error.pdf", bbox_inches="tight")
     plt.show()
@@ -564,7 +567,9 @@ def param_shape_error(
 
         ax.scatter(xT_ex.detach().cpu(), yT_ex.detach().cpu(), s=25, c="red")
         ax.scatter(xT_pred.detach().cpu(), yT_pred.detach().cpu(), s=1, c="green")
+
         ax.set_aspect("equal")
+        plt.gca().set_rasterization_zorder(-1)
         if save_plots:
             plt.savefig(name + f"_mu{mu:3.2f}.pdf", bbox_inches="tight")
 
@@ -618,6 +623,8 @@ def param_shape_superposition(
             s=1,
         )
 
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + "_superposition.pdf", bbox_inches="tight")
     plt.show()
@@ -646,6 +653,7 @@ def optimality_condition(get_optimality_condition, save_plots, name):
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + ".pdf", bbox_inches="tight")
 
@@ -692,6 +700,7 @@ def optimality_condition_param(
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
 
     ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + "_superposition.pdf", bbox_inches="tight")
     plt.show()
@@ -798,6 +807,8 @@ def deep_shape_error_smooth(
 
     ax.scatter(xT_pred, yT_pred, s=1, c="green")
 
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + "_error.pdf", bbox_inches="tight")
     plt.show()
@@ -854,8 +865,11 @@ def deep_shape_error(
         c="green",
     )
 
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if save_plots:
         plt.savefig(name + "_error.pdf", bbox_inches="tight")
+
     plt.show()
 
 
@@ -879,6 +893,7 @@ def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
     ax.legend(bbox_to_anchor=(0.5, -0.2), loc="upper center", borderaxespad=0.0, ncol=2)
     add_colorbar(im)
     ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
     if title is not None:
         ax.set_title(title)
     if save_plots:
