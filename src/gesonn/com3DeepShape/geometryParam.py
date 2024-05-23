@@ -648,6 +648,9 @@ class Geo_Net:
         hausdorff_distances = torch.zeros_like(mus)
 
         for i_mu, mu in enumerate(mus):
+            if i_mu % 100 == 0:
+                print(f"Hausdorff: {i_mu}/{len(mus)} done")
+
             theta = torch.linspace(
                 0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64
             )[:, None]
@@ -680,6 +683,8 @@ class Geo_Net:
                 dist.directed_hausdorff(X_ex, X_net)[0],
             )
 
+        print(f"Hausdorff: {len(mus)}/{len(mus)} done")
+
         return hausdorff_distances
 
     def get_L2_error_on_disk(self, mus, n_pts=10_000):
@@ -692,13 +697,23 @@ class Geo_Net:
         L2_errors = torch.zeros_like(mus)
 
         for i_mu, mu in enumerate(mus):
+            if i_mu % 100 == 0:
+                print(f"L2: {i_mu}/{len(mus)} done")
+
             self.make_collocation(n_pts)
-            MSE = error(
-                self.x_collocation,
-                self.y_collocation,
-                mu.item() * torch.ones_like(self.x_collocation),
+            MSE = (
+                error(
+                    self.x_collocation,
+                    self.y_collocation,
+                    mu.item() * torch.ones_like(self.x_collocation),
+                )[:, 0]
+                .detach()
+                .cpu()
+                ** 2
             )
-            L2_errors[i_mu] = torch.sqrt((MSE**2).sum() / n_pts)
+            L2_errors[i_mu] = torch.sqrt(MSE.sum() / n_pts)
+
+        print(f"L2: {len(mus)}/{len(mus)} done")
 
         return L2_errors
 
@@ -706,13 +721,23 @@ class Geo_Net:
         optimality_conditions = torch.zeros_like(mus)
 
         for i_mu, mu in enumerate(mus):
+            if i_mu % 100 == 0:
+                print(f"optimality: {i_mu}/{len(mus)} done")
+
             self.make_border_collocation(n_pts)
 
-            optimality_conditions[i_mu] = self.get_dn_u(
+            dn_u = self.get_dn_u(
                 self.x_border_collocation,
                 self.y_border_collocation,
                 mu.item() * torch.ones_like(self.x_border_collocation),
-            ).var()
+            )[:, 0]
+
+            optimality_conditions[i_mu] = dn_u.var().detach().cpu()
+
+            self.x_border_collocation = None
+            self.y_border_collocation = None
+
+        print(f"optimality: {len(mus)}/{len(mus)} done")
 
         return optimality_conditions
 
@@ -720,13 +745,14 @@ class Geo_Net:
         # compute a set of random mus
         random_mus = self.random(self.mu_min, self.mu_max, n_mu)
 
-        # compute Hausdorff distances between the solution and the disk for each mu
-        hausdorff_distances = self.get_hausdorff_distances_to_disk(random_mus, n_pts)
+        # # compute Hausdorff distances between the solution and the disk for each mu
+        # hausdorff_distances = self.get_hausdorff_distances_to_disk(random_mus, n_pts)
 
         # compute L2 error for each mu
         L2_errors = self.get_L2_error_on_disk(random_mus, n_pts)
 
-        # compute optimality_conditions for each mu
-        optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
+        # # compute optimality_conditions for each mu
+        # optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
 
-        return random_mus, hausdorff_distances, L2_errors, optimality_conditions
+        # return random_mus, hausdorff_distances, L2_errors, optimality_conditions
+        return L2_errors
