@@ -65,21 +65,16 @@ def fmt(x, pos):
     return r"${} \times 10^{{{}}}$".format(a, b)
 
 
-def edp_contour(
+def get_contours(
     rho_min,
     rho_max,
     get_u,
     apply_symplecto,
     apply_inverse_symplecto,
-    save_plots,
-    name,
     n_visu=768,
     n_contour=250,
-    draw_contours=True,
-    n_drawn_contours=10,
 ):
     import numpy as np
-    import torch
 
     # measuring the min and max coordinates of the bounding box
     theta = torch.linspace(
@@ -129,10 +124,37 @@ def edp_contour(
         zorder=-9,
     )
 
+    return fig, ax, im
+
+
+def edp_contour(
+    rho_min,
+    rho_max,
+    get_u,
+    apply_symplecto,
+    apply_inverse_symplecto,
+    save_plots,
+    name,
+    n_visu=768,
+    n_contour=250,
+    draw_contours=True,
+    n_drawn_contours=10,
+    fill=True,
+):
+    fig, ax, im = get_contours(
+        rho_min,
+        rho_max,
+        get_u,
+        apply_symplecto,
+        apply_inverse_symplecto,
+        n_visu,
+        n_contour,
+    )
+
     if draw_contours:
         ax.contour(
             im,
-            levels=im.levels[:: n_contour // n_drawn_contours],
+            levels=im.levels[:: max(1, n_contour // n_drawn_contours)],
             zorder=-9,
             colors="white",
             alpha=0.5,
@@ -673,6 +695,123 @@ def optimality_condition_param(
     if save_plots:
         plt.savefig(name + "_superposition.pdf", bbox_inches="tight")
     plt.show()
+
+
+def get_coordinates_of_reference_shape(fem_file_path):
+    import numpy as np
+    import pandas as pd
+
+    a_dict = pd.read_csv(fem_file_path, delimiter=";")
+    X = a_dict["x"]
+    Y = a_dict["y"]
+    A_fem = a_dict["a"]
+    X_fem = []
+    x_fem, y_fem = [], []
+    step = int(np.sqrt(len(A_fem)))
+    cpt = 0
+    border_bool = 0
+    for i in range(len(A_fem)):
+        if border_bool == 0 and A_fem[i] == 1:
+            border_bool = 1
+            x, y = X[i], Y[i]
+            X_fem.append((x, y))
+            x_fem.append(x)
+            y_fem.append(y)
+        if border_bool == 1 and A_fem[i] == 1 and A_fem[i + 1] == 0:
+            x, y = X[i], Y[i]
+            X_fem.append((x, y))
+            x_fem.append(x)
+            y_fem.append(y)
+        cpt = cpt + 1
+        if cpt == step:
+            cpt = 0
+            border_bool = 0
+    return np.array(x_fem), np.array(y_fem)
+
+
+def exact_shape(x, y, apply_inverse_symplecto, fem_file_path):
+    import pandas as pd
+    import scipy.interpolate as interp
+
+    a_dict = pd.read_csv(fem_file_path, delimiter=";")
+    X = torch.tensor(a_dict["x"])[:, None]
+    Y = torch.tensor(a_dict["y"])[:, None]
+    X, Y = apply_inverse_symplecto(X, Y)
+    A_fem = a_dict["a"]
+    return torch.tensor(
+        interp.griddata(
+            (X[:, 0].detach().cpu(), Y[:, 0].detach().cpu()),
+            A_fem,
+            (x.detach().cpu(), y.detach().cpu()),
+            method="nearest",
+        )
+    )
+
+
+def deep_shape_error_smooth(
+    rho_min,
+    rho_max,
+    apply_symplecto,
+    apply_inverse_symplecto,
+    fem_file_path,
+    save_plots,
+    name,
+):
+    import numpy as np
+    import torch
+
+    _, __, im = get_contours(
+        rho_min,
+        rho_max,
+        lambda x, y: exact_shape(x, y, apply_inverse_symplecto, fem_file_path),
+        apply_symplecto,
+        apply_inverse_symplecto,
+        n_visu=768,
+        n_contour=0,
+    )
+
+    p = im.collections[0].get_paths()[0]
+    v = p.vertices
+    xT_fem = v[:, 0]
+    yT_fem = v[:, 1]
+    plt.clf()
+
+    n_pts = xT_fem.shape[0]
+
+    # measuring the min and max coordinates of the bounding box
+    theta = torch.linspace(0, 2 * np.pi, n_pts, dtype=torch.float64)[:, None]
+    x = rho_max * torch.cos(theta)
+    y = rho_max * torch.sin(theta)
+    xT_pred, yT_pred = apply_symplecto(x, y)
+    xT_pred, yT_pred = translate_to_zero(xT_pred, yT_pred, n_pts)
+    xT_min, xT_max = xT_pred.min().item(), xT_pred.max().item()
+    yT_min, yT_max = yT_pred.min().item(), yT_pred.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    ax.scatter(xT_fem, yT_fem, s=25, c="red")
+
+    xT_pred, yT_pred = xT_pred[:, 0].detach().cpu(), yT_pred[:, 0].detach().cpu()
+
+    ax.scatter(xT_pred, yT_pred, s=1, c="green")
+
+    if save_plots:
+        plt.savefig(name + "_error.pdf", bbox_inches="tight")
+    plt.show()
+
+    import scipy.spatial.distance as dist
+
+    XT_pred = np.array([xT_pred, yT_pred]).T
+    XT_fem = np.array([xT_fem, yT_fem]).T
+
+    hausdorff_error = max(
+        dist.directed_hausdorff(XT_pred, XT_fem)[0],
+        dist.directed_hausdorff(XT_fem, XT_pred)[0],
+    )
+    print("Haussdorf distance:", hausdorff_error)
 
 
 def deep_shape_error(

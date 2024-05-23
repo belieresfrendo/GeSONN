@@ -625,6 +625,11 @@ class Geo_Net:
                 f"{self.fig_storage}_solution_error",
             )
 
+            self.make_collocation(n_pts)
+            MSE = error(self.x_collocation, self.y_collocation) ** 2
+            L2_error = torch.sqrt(MSE.sum() / n_pts)
+            print(f"L2 error between true and approximate solution: {L2_error}")
+
             makePlots.shape_error(
                 self.rho_max,
                 lambda x, y: self.apply_symplecto(x, y),
@@ -636,15 +641,8 @@ class Geo_Net:
 
             print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / n_pts}")
 
-            self.make_collocation(n_pts)
-            MSE = error(self.x_collocation, self.y_collocation) ** 2
-            L2_error = torch.sqrt(MSE.sum() / n_pts)
-            print(f"L2 error between true and approximate solution: {L2_error}")
-
         elif self.source_term == "exp":
-            print(
-                "TODO: aller voir dans deepReference.py pour récupérer les données de FreeFem++ et en faire une solution exacte, peut-être avec scipy.griddata"
-            )
+            n_pts = 10_000
 
             def exact_solution(x, y):
                 import pandas as pd
@@ -686,6 +684,21 @@ class Geo_Net:
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
                 f"{self.fig_storage}_solution_error",
+            )
+
+            self.make_collocation(n_pts)
+            MSE = error(self.x_collocation, self.y_collocation) ** 2
+            L2_error = torch.sqrt(MSE.sum() / n_pts)
+            print(f"L2 error between true and approximate solution: {L2_error}")
+
+            makePlots.deep_shape_error_smooth(
+                self.rho_min,
+                self.rho_max,
+                lambda x, y: self.apply_symplecto(x, y),
+                lambda x, y: self.apply_inverse_symplecto(x, y),
+                "./../benchmark/shape_references/ff_exp.csv",
+                save_plots,
+                f"{self.fig_storage}_shape_error",
             )
 
     def get_fv_with_random_function(self, n_pts=50_000):
