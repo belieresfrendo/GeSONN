@@ -698,10 +698,8 @@ class Geo_Net:
     def get_fv_with_random_function(self, n_pts=50_000):
         assert isinstance(n_pts, int) and n_pts > 0
         self.make_collocation(n_pts)
-        # x, y, mu = self.x_collocation, self.y_collocation, self.mu_collocation
         x, y = self.x_collocation, self.y_collocation
 
-        # u = self.get_u(x, y, mu)
         u = self.get_u(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
 
@@ -723,13 +721,12 @@ class Geo_Net:
         dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
         dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
 
-        A_grad_u_grad_phi = (a * dx_u + b * dy_u) * dx_phi + (
-            c * dx_u + d * dy_u
-        ) * dy_phi
+        term_x = (a * dx_u + b * dy_u) * dx_phi
+        term_y = (c * dx_u + d * dy_u) * dy_phi
+        A_grad_u_grad_phi = term_x + term_y
 
         f = sourceTerms.get_f(
             *self.apply_symplecto(x, y),
-            # mu=mu,
             name=self.source_term,
         )
 

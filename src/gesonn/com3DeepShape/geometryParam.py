@@ -745,14 +745,78 @@ class Geo_Net:
         # compute a set of random mus
         random_mus = self.random(self.mu_min, self.mu_max, n_mu)
 
-        # # compute Hausdorff distances between the solution and the disk for each mu
-        # hausdorff_distances = self.get_hausdorff_distances_to_disk(random_mus, n_pts)
+        # compute Hausdorff distances between the solution and the disk for each mu
+        hausdorff_distances = self.get_hausdorff_distances_to_disk(random_mus, n_pts)
 
         # compute L2 error for each mu
         L2_errors = self.get_L2_error_on_disk(random_mus, n_pts)
 
-        # # compute optimality_conditions for each mu
-        # optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
+        # compute optimality_conditions for each mu
+        optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
 
-        # return random_mus, hausdorff_distances, L2_errors, optimality_conditions
-        return L2_errors
+        return random_mus, hausdorff_distances, L2_errors, optimality_conditions
+
+    def get_fv_with_random_function(self, n_pts=50_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        self.make_collocation(n_pts)
+        x, y, mu = self.x_collocation, self.y_collocation, self.mu_collocation
+
+        u = self.get_u(x, y, mu)
+        a, b, c, d = self.get_metric_tensor(x, y, mu)
+
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+
+        alpha = bc.compute_bc_mul(
+            x, y, self.rho_min, self.rho_max, name=self.boundary_condition
+        )
+
+        coeff = torch.rand(6)
+        constant = coeff[0]
+        linear = coeff[1] * x + coeff[2] * y
+        quadratic = coeff[3] * x**2 + coeff[4] * x * y + coeff[5] * y**2
+        polynomial = constant + linear + quadratic
+
+        phi = polynomial * alpha
+
+        dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
+        dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
+
+        term_x = (a * dx_u + b * dy_u) * dx_phi
+        term_y = (c * dx_u + d * dy_u) * dy_phi
+        A_grad_u_grad_phi = term_x + term_y
+
+        f = sourceTerms.get_f(
+            *self.apply_symplecto(x, y, mu),
+            mu=mu,
+            name=self.source_term,
+        )
+
+        return (A_grad_u_grad_phi - f * phi).sum().item() / x.shape[0] * self.Vol
+
+    def compute_stats(self, n_pts=50_000, n_random=1_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        assert isinstance(n_random, int) and n_random > 0
+
+        residuals = torch.zeros(n_random)
+        for i in range(n_random):
+            if i % 100 == 0:
+                print(f"Computing residuals... {int(100 * i / n_random)}% done")
+            residuals[i] = self.get_fv_with_random_function(n_pts)
+
+        residuals = torch.abs(residuals)
+
+        print(f"\nMean residual: {residuals.mean():3.2e}")
+        print(f"Max residual: {residuals.max():3.2e}")
+        print(f"Min residual: {residuals.min():3.2e}")
+        print(f"Variance residual: {residuals.var():3.2e}\n")
+
+        random_mus = self.random(self.mu_min, self.mu_max, n_random)
+        optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
+
+        print(f"\nMean optimality: {optimality_conditions.mean():3.2e}")
+        print(f"Max optimality: {optimality_conditions.max():3.2e}")
+        print(f"Min optimality: {optimality_conditions.min():3.2e}")
+        print(f"Variance optimality: {optimality_conditions.var():3.2e}")
+
+        return residuals, optimality_conditions

@@ -68,7 +68,7 @@ param_SIAM_ellipse_backup.pth
         "sympnet_learning_rate": 5e-3,
         "layer_sizes": [3, 10, 20, 40, 20, 10, 1],
         "nb_of_networks": 4,
-        "networks_size": 8,
+        "networks_size": 6,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
@@ -81,7 +81,7 @@ param_SIAM_ellipse_backup.pth
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 1_000
+    epochs = 2_000
     n_collocation = 10_000
 
 param_SIAM_bizaroid_backup.pth
@@ -89,9 +89,9 @@ param_SIAM_bizaroid_backup.pth
     deepGeoDict = {
         "pde_learning_rate": 5e-3,
         "sympnet_learning_rate": 5e-3,
-        "layer_sizes": [3, 20, 40, 40, 20, 1],
-        "nb_of_networks": 6,
-        "networks_size": 8,
+        "layer_sizes": [3, 10, 20, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 6,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
@@ -104,5 +104,5 @@ param_SIAM_bizaroid_backup.pth
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 1_000
+    epochs = 2_000
     n_collocation = 10_000
