@@ -459,10 +459,6 @@ class Geo_Net:
                     self.x_border_collocation, self.y_border_collocation
                 ).var()
 
-                # dn_u, xT, yT = self.get_optimality_condition(n_collocation)
-                # error_dn_u = (dn_u - dn_u.mean())**2
-                # self.loss += 1e-2 * error_dn_u.sum()
-
             self.loss.backward()
             for i in range(self.nb_of_networks):
                 self.up_optimizers[i].step()
@@ -495,14 +491,12 @@ class Geo_Net:
                 except NameError:
                     pass
 
-            # if self.loss.item() < best_loss_value:
             if self.optimality_condition.item() < best_optimality_condition_value:
                 print(
-                    f"epoch {epoch: 5d}:    current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
+                    f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
                 )
                 best_loss = self.loss.clone()
                 best_optimality_condition = self.optimality_condition.clone()
-                # best_loss_value = best_loss.item()
                 best_optimality_condition_value = best_optimality_condition.item()
                 best_up_nets = self.copy_sympnet(self.up_nets)
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)

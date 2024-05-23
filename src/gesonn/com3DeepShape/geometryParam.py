@@ -179,8 +179,15 @@ class Geo_Net:
             optimizers[i].load_state_dict(state_dict)
             i += 1
 
+    @staticmethod
+    def try_to_load(checkpoint, key):
+        try:
+            return checkpoint[key]
+        except KeyError:
+            return None
+
     def load(self, file_name):
-        self.loss_history = []
+        self.loss_history = {}
 
         try:
             try:
@@ -206,12 +213,11 @@ class Geo_Net:
             self.u_net.load_state_dict(checkpoint["u_model_state_dict"])
             self.u_optimizer.load_state_dict(checkpoint["u_optimizer_state_dict"])
 
-            self.loss = checkpoint["loss"]
-
-            try:
-                self.loss_history = checkpoint["loss_history"]
-            except KeyError:
-                pass
+            self.loss = self.try_to_load(checkpoint, "loss")
+            self.optimality_condition = self.try_to_load(
+                checkpoint, "optimality_condition"
+            )
+            self.loss_history = self.try_to_load(checkpoint, "loss_history")
 
             self.to_be_trained = False
 
@@ -244,6 +250,7 @@ class Geo_Net:
         u_net_state,
         u_optimizer_state,
         loss,
+        optimality_condition,
         loss_history,
         nb_of_networks,
         networks_size,
@@ -262,6 +269,7 @@ class Geo_Net:
                 "u_model_state_dict": u_net_state,
                 "u_optimizer_state_dict": u_optimizer_state,
                 "loss": loss,
+                "optimality_condition": optimality_condition,
                 "loss_history": loss_history,
                 "nb_of_networks": nb_of_networks,
                 "networks_size": networks_size,
@@ -309,24 +317,18 @@ class Geo_Net:
 
         return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
-    def get_optimality_condition(self, mu):
+    def get_optimality_condition(self, mu, n_pts=10_000):
         """
-        Be carefull : mu is a scalar
+        Be careful : mu is a scalar
         """
-        n = 10_000
-        theta = torch.linspace(
-            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
-        )[:, None]
+        theta = torch.linspace(0, 2 * torch.pi, n_pts, requires_grad=True)[:, None]
         x = self.rho_max * torch.cos(theta)
         y = self.rho_max * torch.sin(theta)
         mu = mu * torch.ones_like(x)
         xT, yT = self.apply_symplecto(x, y, mu)
-        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y, mu)
-        d_sigma = torch.sqrt((J_b * x - J_a * y) ** 2 + (J_d * x - J_c * y) ** 2)
         dn_u = self.get_dn_u(x, y, mu)
 
-        avg_dn_u = (dn_u * d_sigma).sum() / n
-        return torch.abs(avg_dn_u - dn_u), xT, yT
+        return dn_u - dn_u.mean(), xT, yT
 
     def left_hand_term(self, x, y, mu):
         u = self.get_u(x, y, mu)
@@ -427,6 +429,13 @@ class Geo_Net:
 
         return lenghts.sum()
 
+    def append_to_history(self, keys, values):
+        for key, value in zip(keys, values):
+            try:
+                self.loss_history[key].append(value)
+            except KeyError:
+                self.loss_history[key] = [value]
+
     def train(self, **kwargs):
         # nombre de pas de descente
         epochs = kwargs.get("epochs", 500)
@@ -436,11 +445,15 @@ class Geo_Net:
         plot_history = kwargs.get("plot_history", False)
         save_plots = kwargs.get("save_plots", False)
 
+        n_mu_for_optimality_condition = kwargs.get("n_mu_for_optimality_condition", 10)
+
         # trucs de sauvegarde ?
         try:
             best_loss_value = self.loss.item()
+            best_optimality_condition_value = self.optimality_condition.item()
         except AttributeError:
             best_loss_value = 1e10
+            best_optimality_condition_value = 1e10
 
         # boucle principale de la descnet ede gradient
         tps1 = time.time()
@@ -472,13 +485,33 @@ class Geo_Net:
 
                 self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
 
+                self.make_border_collocation(n_collocation)
+                self.optimality_condition = 0
+
+                random_mus = self.random(
+                    self.mu_min, self.mu_max, n_mu_for_optimality_condition
+                )
+
+                for mu in random_mus:
+                    self.optimality_condition += (
+                        self.get_dn_u(
+                            self.x_border_collocation,
+                            self.y_border_collocation,
+                            mu.item() * torch.ones_like(self.x_border_collocation),
+                        ).var()
+                        / n_mu_for_optimality_condition
+                    )
+
             self.loss.backward()
             for i in range(self.nb_of_networks):
                 self.up_optimizers[i].step()
                 self.down_optimizers[i].step()
             self.u_optimizer.step()
 
-            self.loss_history.append(self.loss.item())
+            self.append_to_history(
+                ("loss", "optimality_condition"),
+                (self.loss.item(), self.optimality_condition.item()),
+            )
 
             if epoch % 500 == 0:
                 print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -493,6 +526,7 @@ class Geo_Net:
                         best_u_net,
                         best_u_optimizer,
                         best_loss,
+                        best_optimality_condition,
                         self.loss_history,
                         self.get_physical_parameters(),
                         self.nb_of_networks,
@@ -500,10 +534,13 @@ class Geo_Net:
                 except NameError:
                     pass
 
-            if self.loss.item() < best_loss_value:
-                print(f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}")
+            if self.optimality_condition.item() < best_optimality_condition_value:
+                print(
+                    f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
+                )
                 best_loss = self.loss.clone()
-                best_loss_value = best_loss.item()
+                best_optimality_condition = self.optimality_condition.clone()
+                best_optimality_condition_value = best_optimality_condition.item()
                 best_up_nets = self.copy_sympnet(self.up_nets)
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)
                 best_down_nets = self.copy_sympnet(self.down_nets)
@@ -511,6 +548,13 @@ class Geo_Net:
 
                 best_u_net = copy.deepcopy(self.u_net.state_dict())
                 best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+
+            if self.loss.item() < best_loss_value:
+                print(
+                    f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}"
+                )
+                best_loss_value = self.loss.item()
+
         tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
@@ -526,6 +570,7 @@ class Geo_Net:
                 best_u_net,
                 best_u_optimizer,
                 best_loss,
+                best_optimality_condition,
                 self.loss_history,
                 self.get_physical_parameters(),
                 self.nb_of_networks,
@@ -543,8 +588,13 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, save_plots):
+    def plot_result(self, save_plots, n_mus=2, n_mus_for_optimality_condition=10):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
+
+        mu_list_solution = list(self.random(self.mu_min, self.mu_max, n_mus))
+        mu_list_optimality = list(
+            self.random(self.mu_min, self.mu_max, n_mus_for_optimality_condition)
+        )
 
         makePlots.edp_contour_param_source(
             self.rho_min,
@@ -555,40 +605,23 @@ class Geo_Net:
             lambda x, y, mu: self.apply_symplecto(x, y, mu),
             lambda x, y, mu: self.apply_inverse_symplecto(x, y, mu),
             save_plots,
-            self.fig_storage,
+            f"{self.fig_storage}_solution",
+            mu_list=mu_list_solution,
         )
-
-        # makePlots.param_shape_superposition(
-        #     self.rho_max,
-        #     self.mu_min,
-        #     self.mu_max,
-        #     lambda x, y, mu: self.apply_symplecto(x, y, mu),
-        #     save_plots,
-        #     self.fig_storage,
-        # )
 
         makePlots.optimality_condition_param(
             self.mu_min,
             self.mu_max,
             self.get_optimality_condition,
             save_plots,
-            self.fig_storage,
+            f"{self.fig_storage}_optimality",
+            mu_list=mu_list_optimality,
         )
 
         if self.source_term == "one":
-            theta = torch.linspace(
-                0, 2 * torch.pi, 10_000, requires_grad=True, dtype=torch.float64
-            )[:, None]
-            x = self.rho_max * torch.cos(theta)
-            y = self.rho_max * torch.sin(theta)
-            mu = self.random(self.mu_min, self.mu_max, (10_000, 1))
-            xT, yT = self.apply_symplecto(x, y, mu)
-
-            x0 = (xT.max() + xT.min()).item() / 2
-            y0 = (yT.max() + yT.min()).item() / 2
 
             def exact_solution(x, y, mu):
-                return 0.25 * mu * (1 - x**2 - y**2)
+                return mu * 0.25 * (1 - x**2 - y**2)
 
             def error(x, y, mu):
                 return torch.abs(exact_solution(x, y, mu) - self.get_u(x, y, mu))
@@ -602,7 +635,98 @@ class Geo_Net:
                 lambda x, y, mu: self.apply_symplecto(x, y, mu),
                 lambda x, y, mu: self.apply_inverse_symplecto(x, y, mu),
                 save_plots,
-                self.fig_storage,
+                f"{self.fig_storage}_solution_error",
+                mu_list=mu_list_solution,
             )
 
-            print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / 10_000}")
+    def get_hausdorff_distances_to_disk(self, mus, n_pts=10_000):
+        import numpy as np
+        import scipy.spatial.distance as dist
+
+        self.make_collocation(n_pts)
+
+        hausdorff_distances = torch.zeros_like(mus)
+
+        for i_mu, mu in enumerate(mus):
+            theta = torch.linspace(
+                0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64
+            )[:, None]
+            x = self.rho_max * torch.cos(theta)
+            y = self.rho_max * torch.sin(theta)
+            xT, yT = self.apply_symplecto(x, y, mu.item() * torch.ones_like(x))
+
+            x0 = xT.sum() / n_pts
+            y0 = yT.sum() / n_pts
+
+            x_ex, y_ex = self.x_collocation + x0, self.y_collocation + y0
+            x_net, y_net = self.apply_symplecto(
+                self.x_collocation,
+                self.y_collocation,
+                mu.item() * torch.ones_like(self.x_collocation),
+            )
+
+            X_net = []
+            X_ex = []
+            for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+                X_net.append((x, y))
+            for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+                X_ex.append((x, y))
+
+            X_net = np.array(X_net)
+            X_ex = np.array(X_ex)
+
+            hausdorff_distances[i_mu] = max(
+                dist.directed_hausdorff(X_net, X_ex)[0],
+                dist.directed_hausdorff(X_ex, X_net)[0],
+            )
+
+        return hausdorff_distances
+
+    def get_L2_error_on_disk(self, mus, n_pts=10_000):
+        def exact_solution(x, y, mu):
+            return mu * 0.25 * (1 - x**2 - y**2)
+
+        def error(x, y, mu):
+            return torch.abs(exact_solution(x, y, mu) - self.get_u(x, y, mu))
+
+        L2_errors = torch.zeros_like(mus)
+
+        for i_mu, mu in enumerate(mus):
+            self.make_collocation(n_pts)
+            MSE = error(
+                self.x_collocation,
+                self.y_collocation,
+                mu.item() * torch.ones_like(self.x_collocation),
+            )
+            L2_errors[i_mu] = torch.sqrt((MSE**2).sum() / n_pts)
+
+        return L2_errors
+
+    def stats_on_optimality_condition(self, mus, n_pts=10_000):
+        optimality_conditions = torch.zeros_like(mus)
+
+        for i_mu, mu in enumerate(mus):
+            self.make_border_collocation(n_pts)
+
+            optimality_conditions[i_mu] = self.get_dn_u(
+                self.x_border_collocation,
+                self.y_border_collocation,
+                mu.item() * torch.ones_like(self.x_border_collocation),
+            ).var()
+
+        return optimality_conditions
+
+    def compute_stats_constant_source(self, n_pts=10_000, n_mu=10):
+        # compute a set of random mus
+        random_mus = self.random(self.mu_min, self.mu_max, n_mu)
+
+        # compute Hausdorff distances between the solution and the disk for each mu
+        hausdorff_distances = self.get_hausdorff_distances_to_disk(random_mus, n_pts)
+
+        # compute L2 error for each mu
+        L2_errors = self.get_L2_error_on_disk(random_mus, n_pts)
+
+        # compute optimality_conditions for each mu
+        optimality_conditions = self.stats_on_optimality_condition(random_mus, n_pts)
+
+        return random_mus, hausdorff_distances, L2_errors, optimality_conditions

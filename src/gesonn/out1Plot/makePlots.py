@@ -283,17 +283,19 @@ def edp_contour_param_source(
     n_contour=250,
     draw_contours=True,
     n_drawn_contours=10,
+    mu_list=None,
 ):
     import numpy as np
     import torch
 
-    mu_list = [
-        mu_min,
-        0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + 0.5 * mu_max,
-        0.25 * mu_min + 0.75 * mu_max,
-        mu_max,
-    ]
+    if mu_list is None:
+        mu_list = [
+            mu_min,
+            0.75 * mu_min + 0.25 * mu_max,
+            0.5 * mu_min + 0.5 * mu_max,
+            0.25 * mu_min + 0.75 * mu_max,
+            mu_max,
+        ]
 
     for mu in mu_list:
         # measuring the min and max coordinates of the bounding box
@@ -663,15 +665,16 @@ def optimality_condition(get_optimality_condition, save_plots, name):
 
 
 def optimality_condition_param(
-    mu_min, mu_max, get_optimality_condition, save_plots, name
+    mu_min, mu_max, get_optimality_condition, save_plots, name, mu_list=None
 ):
-    mu_list = [
-        mu_min,
-        0.75 * mu_min + 0.25 * mu_max,
-        0.5 * mu_min + 0.5 * mu_max,
-        0.25 * mu_min + 0.75 * mu_max,
-        mu_max,
-    ]
+    if mu_list is None:
+        mu_list = [
+            mu_min,
+            0.75 * mu_min + 0.25 * mu_max,
+            0.5 * mu_min + 0.5 * mu_max,
+            0.25 * mu_min + 0.75 * mu_max,
+            mu_max,
+        ]
 
     lx, ly = 0, 0
 
