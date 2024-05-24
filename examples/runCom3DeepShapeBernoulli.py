@@ -4,7 +4,7 @@ import os
 import torch
 
 # local imports
-from gesonn.com3DeepShape import bernoulli
+from gesonn.com3DeepShape import bernoulli_one_optimizer as bernoulli
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometry.py")
@@ -19,8 +19,8 @@ if __name__ == "__main__":
     # train = False
 
     deepGeoDict = {
-        "pde_learning_rate": 1e-3,
-        "sympnet_learning_rate": 1e-3,
+        "pde_learning_rate": 5e-3,
+        "sympnet_learning_rate": 5e-3,
         "layer_sizes": [2, 40, 80, 40, 1],
         "nb_of_networks": 2,
         "networks_size": 5,
@@ -30,10 +30,10 @@ if __name__ == "__main__":
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
-        "tikhonov" : 1e-2,
+        "pinn_activation": torch.tanh,
     }
 
-    epochs = 1_000
+    epochs = 25_000
     n_collocation = 10_000
     new_training = False
     # new_training = True

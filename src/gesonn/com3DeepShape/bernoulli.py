@@ -4,8 +4,6 @@ Authors:
     V. MICHEL-DANSAC    (INRIA)
 Date:
     2023 - 2024
-
-
 """
 
 # %%
@@ -19,7 +17,6 @@ Date:
 import copy
 import os
 import time
-import math
 
 import torch
 import torch.nn as nn
@@ -29,14 +26,6 @@ from gesonn.com1PINNs import boundary_conditions as bc
 from gesonn.com1PINNs import poisson
 from gesonn.com2SympNets import G
 from gesonn.out1Plot import makePlots
-
-try:
-    import torchinfo
-
-    no_torchinfo = False
-except ModuleNotFoundError:
-    no_torchinfo = True
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}; script is deepGeometry.py")
@@ -60,7 +49,8 @@ class Geo_Net:
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.6,
-        "tikhonov": 0,
+        "sympnet_activation": torch.sigmoid,
+        "pinn_activation": torch.tanh,
     }
 
     # constructeur
@@ -93,10 +83,16 @@ class Geo_Net:
             ]
         if deepGeoDict.get("a") == None:
             deepGeoDict["a"] = self.DEFAULT_DEEP_GEO_DICT["a"]
-        if deepGeoDict.get("tikhonov") == None:
-            deepGeoDict["tikhonov"] = self.DEFAULT_PINNS_DICT["tikhonov"]
         if deepGeoDict.get("to_be_trained") == None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
+        if deepGeoDict.get("sympnet_activation") is None:
+            deepGeoDict["sympnet_activation"] = self.DEFAULT_DEEP_GEO_DICT[
+                "sympnet_activation"
+            ]
+        if deepGeoDict.get("pinn_activation") is None:
+            deepGeoDict["pinn_activation"] = self.DEFAULT_DEEP_GEO_DICT[
+                "pinn_activation"
+            ]
 
         # Storage file
         self.file_name = (
@@ -118,21 +114,24 @@ class Geo_Net:
         self.Vol = torch.pi * self.rho_max**2
         # Boundary condition of the Poisson problem
         self.boundary_condition = deepGeoDict["boundary_condition"]
-        # thikhonov regularization epsilon parameter
-        self.pen_tikhonov = deepGeoDict["tikhonov"]
-
         # Parameters of the compact set K
         self.a = deepGeoDict["a"]
         self.b = self.rho_min**2 / self.a
+        # activation functions
+        self.pinn_activation = deepGeoDict["pinn_activation"]
+        self.sympnet_activation = deepGeoDict["sympnet_activation"]
 
         self.create_networks()
         self.load(self.file_name)
 
         self.to_be_trained = deepGeoDict["to_be_trained"]
 
+
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(
-            nn.DataParallel(G.Symp_Net_Forward_No_Bias(self.networks_size)).to(device)
+            nn.DataParallel(
+                G.Symp_Net_Forward(self.networks_size, self.sympnet_activation)
+            ).to(device)
         )
         optims.append(
             torch.optim.Adam(nets[i].parameters(), lr=self.sympnet_learning_rate)
@@ -148,7 +147,9 @@ class Geo_Net:
             self.sympnet_layer_append(self.up_nets, self.up_optimizers, i)
             self.sympnet_layer_append(self.down_nets, self.down_optimizers, i)
         # réseau associé à la solution de l'EDP
-        self.u_net = nn.DataParallel(poisson.PDE_Forward(self.layer_sizes)).to(device)
+        self.u_net = nn.DataParallel(
+            poisson.PDE_Forward(self.layer_sizes, self.pinn_activation)
+        ).to(device)
         self.u_optimizer = torch.optim.Adam(
             self.u_net.parameters(), lr=self.pde_learning_rate
         )
@@ -168,10 +169,15 @@ class Geo_Net:
             optimizers[i].load_state_dict(state_dict)
             i += 1
 
+    @staticmethod
+    def try_to_load(checkpoint, key):
+        try:
+            return checkpoint[key]
+        except KeyError:
+            return None
+
     def load(self, file_name):
-        self.loss_history = []
-        self.dirichlet_history = []
-        self.tikhonov_history = []
+        self.loss_history = {}
 
         try:
             try:
@@ -197,16 +203,11 @@ class Geo_Net:
             self.u_net.load_state_dict(checkpoint["u_model_state_dict"])
             self.u_optimizer.load_state_dict(checkpoint["u_optimizer_state_dict"])
 
-            self.loss = checkpoint["loss"]
-            self.tikhonov = checkpoint["tikhonov"]
-            self.dirichlet = checkpoint["dirichlet"]
-
-            try:
-                self.loss_history = checkpoint["loss_history"]
-                self.tikhonov_history = checkpoint["tikhonov_history"]
-                self.dirichlet_history = checkpoint["dirichlet_history"]
-            except KeyError:
-                pass
+            self.loss = self.try_to_load(checkpoint, "loss")
+            self.optimality_condition = self.try_to_load(
+                checkpoint, "optimality_condition"
+            )
+            self.loss_history = self.try_to_load(checkpoint, "loss_history")
 
             self.to_be_trained = False
 
@@ -237,11 +238,8 @@ class Geo_Net:
         u_net_state,
         u_optimizer_state,
         loss,
-        tikhonov,
-        dirichlet,
+        optimality_condition,
         loss_history,
-        tikhonov_history,
-        dirichlet_history,
         nb_of_networks,
         networks_size,
     ):
@@ -259,17 +257,14 @@ class Geo_Net:
                 "u_model_state_dict": u_net_state,
                 "u_optimizer_state_dict": u_optimizer_state,
                 "loss": loss,
-                "tikhonov": tikhonov,
-                "dirichlet": dirichlet,
+                "optimality_condition": optimality_condition,
                 "loss_history": loss_history,
-                "tikhonov_history": tikhonov_history,
-                "dirichlet_history": dirichlet_history,
                 "nb_of_networks": nb_of_networks,
                 "networks_size": networks_size,
             },
             file_name,
         )
-
+        
     def get_jacobian_matrix(self, x, y):
         xT, yT = self.apply_symplecto(x, y)
 
@@ -311,19 +306,15 @@ class Geo_Net:
         return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
 
     def get_optimality_condition(self, n=10_000):
-        theta = torch.linspace(
-            0, 2 * torch.pi, n, requires_grad=True, device=device, dtype=torch.float64
-        )[:, None]
-        x = self.rho_max * torch.cos(theta)
-        y = self.rho_max * torch.sin(theta)
-        xT, yT = self.apply_symplecto(x, y)
-        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
-        d_sigma = torch.sqrt((J_b * x - J_a * y) ** 2 + (J_d * x - J_c * y) ** 2)
-        dn_u = self.get_dn_u(x, y)
-        return dn_u, xT, yT
+        self.make_border_collocation(n)
+        xT, yT = self.apply_symplecto(
+            self.x_gamma_collocation, self.y_gamma_collocation
+        )
+        dn_u = self.get_dn_u(self.x_gamma_collocation, self.y_gamma_collocation)
 
-        avg_dn_u = (dn_u * d_sigma).sum() / n
-        return torch.abs(avg_dn_u - dn_u), xT, yT
+        opt = (dn_u - dn_u.mean())
+
+        return opt, xT, yT
 
     def left_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -335,37 +326,6 @@ class Geo_Net:
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
         return A_grad_u_grad_u
-
-    def get_int_K_fv(self, x, y):
-        u = self.get_u(x, y)
-        a, b, c, d = self.get_metric_tensor(x, y)
-
-        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
-        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
-
-        norm_A_grad_u = torch.sqrt(
-            (a * dx_u + b * dy_u) ** 2 * (c * dx_u + d * dy_u) ** 2
-        )
-        return -norm_A_grad_u * u
-
-    def get_fv_H10(self, x, y):
-
-        u = self.get_u(x, y)
-        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
-        det = J_a * J_d - J_c * J_b
-        a, b, c, d = J_d / det, -J_c / det, -J_b / det, J_a / det
-        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
-        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
-        J_dx_v = a * dx_u + b * dy_u
-        J_dy_v = c * dx_u + d * dy_u
-
-        xT, yT = self.apply_symplecto(x, y)
-        dx_rho_K = 2/(self.a**2) * xT
-        dy_rho_K = 2/(self.b**2) * yT
-        
-        grad_u_grad_phi = J_dx_v * dx_rho_K + J_dy_v * dy_rho_K
-
-        return grad_u_grad_phi
 
     def apply_symplecto(self, x, y):
         x, y = x, y
@@ -429,15 +389,14 @@ class Geo_Net:
             self.x_collocation, self.y_collocation
         )
 
-    def make_K_collocation(self, n_collocation):
+    def make_border_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
-        xK = self.a * torch.cos(theta_collocation)
-        yK = self.b * torch.sin(theta_collocation)
-        self.xK_inv, self.yK_inv = self.apply_inverse_symplecto(xK, yK)
+        self.x_gamma_collocation = self.rho_max * torch.cos(theta_collocation)
+        self.y_gamma_collocation = self.rho_max * torch.sin(theta_collocation)
 
     def get_mes_border(self):
         n = 10_000
@@ -454,6 +413,14 @@ class Geo_Net:
 
         return lenghts.sum()
 
+    def append_to_history(self, keys, values):
+        for key, value in zip(keys, values):
+            try:
+                self.loss_history[key].append(value)
+            except KeyError:
+                self.loss_history[key] = [value]
+
+
     def train(self, **kwargs):
         # nombre de pas de descente
         epochs = kwargs.get("epochs", 500)
@@ -463,11 +430,13 @@ class Geo_Net:
         plot_history = kwargs.get("plot_history", False)
         save_plots = kwargs.get("save_plots", False)
 
-        # trucs de sauvegarde ?
+        # trucs de sauvegarde
         try:
             best_loss_value = self.loss.item()
+            best_optimality_condition_value = self.optimality_condition.item()
         except AttributeError:
             best_loss_value = 1e10
+            best_optimality_condition_value = 1e10
 
         # boucle principale de la descnet ede gradient
         tps1 = time.time()
@@ -480,8 +449,6 @@ class Geo_Net:
 
             # mise à 0 de la loss
             self.loss = torch.tensor([0.0], device=device)
-            self.tikhonov = torch.tensor([0.0], device=device)
-            self.dirichlet = torch.tensor([0.0], device=device)
 
             # Loss based on PDE
             if n_collocation > 0:
@@ -492,25 +459,14 @@ class Geo_Net:
                     self.x_collocation,
                     self.y_collocation,
                 )
+                dirichlet_loss = 0.5 * grad_u_2.sum() * self.Vol / n_pts
 
-                self.dirichlet = 0.5 * grad_u_2.sum() * self.Vol / n_pts
+                self.loss = dirichlet_loss
 
-                if self.pen_tikhonov != 0:
-                    # n_pts_tikhonov = int(n_collocation / 10)
-                    # self.make_K_collocation(n_pts_tikhonov)
-                    # permietre_K = torch.pi * (
-                    #     3 * (self.a + self.b)
-                    #     - math.sqrt((3 * self.a + self.b) * (self.a + 3 * self.b))
-                    # )
-                    # int_K_fv = self.get_int_K_fv(self.xK_inv, self.yK_inv)
-                    # self.tikhonov = (
-                    #     2 * self.dirichlet
-                    #     - int_K_fv.sum() * permietre_K / n_pts_tikhonov
-                    # ) ** 2
-                    fv = self.get_fv_H10(self.x_collocation, self.y_collocation)
-                    self.tikhonov = (fv**2).sum() * self.Vol / n_pts
-
-                self.loss = self.dirichlet + self.pen_tikhonov * self.tikhonov
+                self.make_border_collocation(n_collocation)
+                self.optimality_condition = self.get_dn_u(
+                    self.x_gamma_collocation, self.y_gamma_collocation
+                ).var()
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
@@ -518,15 +474,13 @@ class Geo_Net:
                 self.down_optimizers[i].step()
             self.u_optimizer.step()
 
-            self.loss_history.append(self.loss.item())
-            self.tikhonov_history.append(self.tikhonov.item())
-            self.dirichlet_history.append(self.dirichlet.item())
+            self.append_to_history(
+                ("loss", "optimality_condition"),
+                (self.loss.item(), self.optimality_condition.item()),
+            )
 
             if epoch % 500 == 0:
-                string = f"epoch {epoch: 5d}: current loss = {self.loss.item():3.2e}"
-                if self.pen_tikhonov != 0:
-                    string += f", Dirichlet = {self.dirichlet:3.2e}, Tikhonov = {self.tikhonov:3.2e}"
-                print(string)
+                print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
                 try:
                     self.save(
                         self.file_name,
@@ -538,26 +492,23 @@ class Geo_Net:
                         best_u_net,
                         best_u_optimizer,
                         best_loss,
-                        best_tikhonov,
-                        best_dirichlet,
+                        best_optimality_condition,
                         self.loss_history,
-                        self.tikhonov_history,
-                        self.dirichlet_history,
                         self.get_physical_parameters(),
                         self.nb_of_networks,
                     )
                 except NameError:
                     pass
 
-            if self.loss.item() < best_loss_value:
-                string = f"epoch {epoch: 5d}:    best loss = {self.loss.item():3.2e}"
-                if self.pen_tikhonov != 0:
-                    string += f", Dirichlet = {self.dirichlet:3.2e}, Tikhonov = {self.tikhonov:3.2e}"
-                print(string)
+            # if self.loss.item() < best_loss_value:
+            if self.optimality_condition.item() < best_optimality_condition_value:
+                print(
+                    f"epoch {epoch: 5d}:    current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
+                )
                 best_loss = self.loss.clone()
-                best_tikhonov = self.tikhonov.clone()
-                best_dirichlet = self.dirichlet.clone()
-                best_loss_value = best_loss.item()
+                best_optimality_condition = self.optimality_condition.clone()
+                # best_loss_value = best_loss.item()
+                best_optimality_condition_value = best_optimality_condition.item()
                 best_up_nets = self.copy_sympnet(self.up_nets)
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)
                 best_down_nets = self.copy_sympnet(self.down_nets)
@@ -565,6 +516,13 @@ class Geo_Net:
 
                 best_u_net = copy.deepcopy(self.u_net.state_dict())
                 best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+
+            if self.loss.item() < best_loss_value:
+                print(
+                    f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}"
+                )
+                best_loss_value = self.loss.item()
+
         tps2 = time.time()
 
         print(f"epoch {epoch: 5d}: current loss = {self.loss.item():3.2e}")
@@ -580,17 +538,15 @@ class Geo_Net:
                 best_u_net,
                 best_u_optimizer,
                 best_loss,
-                best_tikhonov,
-                best_dirichlet,
+                best_optimality_condition,
                 self.loss_history,
-                self.tikhonov_history,
-                self.dirichlet_history,
                 self.get_physical_parameters(),
                 self.nb_of_networks,
             )
-            self.load(self.file_name)
         except UnboundLocalError:
             pass
+
+        self.load(self.file_name)
 
         if plot_history:
             self.plot_result(save_plots)
@@ -603,18 +559,7 @@ class Geo_Net:
 
     def plot_result(self, save_plots):
 
-        makePlots.loss(self.loss_history, save_plots, self.fig_storage)
-        makePlots.losses(
-            self.loss_history,
-            self.tikhonov_history,
-            self.dirichlet_history,
-            save_plots,
-            self.fig_storage,
-        )
-
-        n_visu = 768
-        if device == "cuda":
-            n_visu = 124
+        makePlots.loss_bernoulli(self.loss_history, save_plots, self.fig_storage)
 
         makePlots.edp_contour_bernoulli(
             self.rho_max,
@@ -624,12 +569,11 @@ class Geo_Net:
             lambda x, y: self.apply_symplecto(x, y),
             lambda x, y: self.apply_inverse_symplecto(x, y),
             save_plots,
-            self.fig_storage,
-            n_visu=n_visu,
+            f"{self.fig_storage}_solution",
         )
 
         makePlots.optimality_condition(
             self.get_optimality_condition,
             save_plots,
-            self.fig_storage,
+            f"{self.fig_storage}_optimality",
         )
