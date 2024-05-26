@@ -34,17 +34,26 @@ def loss(loss_history, save_plots, name):
     plt.show()
 
 
-def losses(loss_history, tikhonov_history, dirichlet_history, save_plots, name):
-    _, ax = plt.subplots()
-    ax.plot(loss_history, label="loss")
-    ax.plot(tikhonov_history, label="tikhonov")
-    ax.plot(dirichlet_history, label="dirichlet")
-    ax.set_yscale("symlog", linthresh=1e-4)
-    ax.legend()
-    if save_plots:
-        plt.savefig(name + "_losses.pdf", bbox_inches="tight")
-    plt.show()
+def loss_bernoulli(loss_history, save_plots, name):
+    _, ax = plt.subplots(1, 1, figsize=(10, 5))
 
+    if isinstance(loss_history, list):
+        loss_history = {"loss": loss_history}
+
+    for key, value in loss_history.items():
+        # if min(value) < 0:
+        #     ax[0].plot(value, label=key)
+        #     history = torch.tensor(value)
+        #     ax[0].set_yscale("symlog", linthresh=abs(history[0]).min().item())
+        # else:
+        ax.semilogy(value, label=key)
+
+    ax.legend()
+
+    if save_plots:
+        plt.savefig(name + "_loss.pdf", bbox_inches="tight")
+
+    plt.show()
 
 def add_colorbar(im, aspect=20, pad_fraction=0.5, **kwargs):
     """Add a vertical color bar to an image plot."""
