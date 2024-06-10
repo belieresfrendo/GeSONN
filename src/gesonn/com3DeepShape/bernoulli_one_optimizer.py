@@ -57,33 +57,33 @@ class Geo_Net:
     def __init__(self, **kwargs):
         deepGeoDict = kwargs.get("deepGeoDict", self.DEFAULT_DEEP_GEO_DICT)
 
-        if deepGeoDict.get("pde_learning_rate") == None:
+        if deepGeoDict.get("pde_learning_rate") is None:
             deepGeoDict["pde_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
                 "pde_learning_rate"
             ]
-        if deepGeoDict.get("sympnet_learning_rate") == None:
+        if deepGeoDict.get("sympnet_learning_rate") is None:
             deepGeoDict["sympnet_learning_rate"] = self.DEFAULT_DEEP_GEO_DICT[
                 "sympnet_learning_rate"
             ]
-        if deepGeoDict.get("layer_sizes") == None:
+        if deepGeoDict.get("layer_sizes") is None:
             deepGeoDict["layer_sizes"] = self.DEFAULT_DEEP_GEO_DICT["layer_sizes"]
-        if deepGeoDict.get("nb_of_networks") == None:
+        if deepGeoDict.get("nb_of_networks") is None:
             deepGeoDict["nb_of_networks"] = self.DEFAULT_DEEP_GEO_DICT["nb_of_networks"]
-        if deepGeoDict.get("networks_size") == None:
+        if deepGeoDict.get("networks_size") is None:
             deepGeoDict["networks_size"] = self.DEFAULT_DEEP_GEO_DICT["networks_size"]
-        if deepGeoDict.get("rho_min") == None:
+        if deepGeoDict.get("rho_min") is None:
             deepGeoDict["rho_min"] = self.DEFAULT_DEEP_GEO_DICT["rho_min"]
-        if deepGeoDict.get("rho_max") == None:
+        if deepGeoDict.get("rho_max") is None:
             deepGeoDict["rho_max"] = self.DEFAULT_DEEP_GEO_DICT["rho_max"]
-        if deepGeoDict.get("file_name") == None:
+        if deepGeoDict.get("file_name") is None:
             deepGeoDict["file_name"] = self.DEFAULT_DEEP_GEO_DICT["file_name"]
-        if deepGeoDict.get("boundary_condition") == None:
+        if deepGeoDict.get("boundary_condition") is None:
             deepGeoDict["boundary_condition"] = self.DEFAULT_DEEP_GEO_DICT[
                 "boundary_condition"
             ]
-        if deepGeoDict.get("a") == None:
+        if deepGeoDict.get("a") is None:
             deepGeoDict["a"] = self.DEFAULT_DEEP_GEO_DICT["a"]
-        if deepGeoDict.get("to_be_trained") == None:
+        if deepGeoDict.get("to_be_trained") is None:
             deepGeoDict["to_be_trained"] = self.DEFAULT_DEEP_GEO_DICT["to_be_trained"]
         if deepGeoDict.get("sympnet_activation") is None:
             deepGeoDict["sympnet_activation"] = self.DEFAULT_DEEP_GEO_DICT[
@@ -126,7 +126,6 @@ class Geo_Net:
 
         self.to_be_trained = deepGeoDict["to_be_trained"]
 
-
     def sympnet_layer_append(self, nets, optims, i):
         nets.append(
             nn.DataParallel(
@@ -139,6 +138,7 @@ class Geo_Net:
         optims.append(
             {"params": nets[i].parameters(), "lr": self.sympnet_learning_rate}
         )
+
     def create_networks(self):
         # réseau relatif au symplecto
         self.up_nets = []
@@ -246,7 +246,7 @@ class Geo_Net:
             },
             file_name,
         )
-        
+
     def get_jacobian_matrix(self, x, y):
         xT, yT = self.apply_symplecto(x, y)
 
@@ -294,7 +294,7 @@ class Geo_Net:
         )
         dn_u = self.get_dn_u(self.x_gamma_collocation, self.y_gamma_collocation)
 
-        opt = (dn_u - dn_u.mean())
+        opt = dn_u - dn_u.mean()
 
         return opt, xT, yT
 
@@ -353,11 +353,11 @@ class Geo_Net:
         )
         return min_value + (max_value - min_value) * random_numbers
 
-    def make_collocation(self, n_collocation):
+    def make_collocation(self, n_collocation, rho_min=0):
         shape = (n_collocation, 1)
 
         rho_collocation = torch.sqrt(
-            self.random(0, self.rho_max**2, shape, requires_grad=True)
+            self.random(rho_min, self.rho_max**2, shape, requires_grad=True)
         )
         theta_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
@@ -400,7 +400,6 @@ class Geo_Net:
                 self.loss_history[key].append(value)
             except KeyError:
                 self.loss_history[key] = [value]
-
 
     def train(self, **kwargs):
         # nombre de pas de descente
@@ -527,8 +526,33 @@ class Geo_Net:
     def copy_sympnet(to_be_copied):
         return [copy.deepcopy(copie.state_dict()) for copie in to_be_copied]
 
-    def plot_result(self, save_plots):
+    def get_hausdorff_distance(
+        self, approximate_symplecto, exact_symplecto, n_pts=10_000
+    ):
+        import numpy as np
+        import scipy.spatial.distance as dist
 
+        self.make_collocation(n_pts)
+
+        x_ex, y_ex = exact_symplecto(self.x_collocation, self.y_collocation)
+        x_net, y_net = approximate_symplecto(self.x_collocation, self.y_collocation)
+
+        X_net = []
+        X_ex = []
+        for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+            X_net.append((x, y))
+        for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+            X_ex.append((x, y))
+
+        X_net = np.array(X_net)
+        X_ex = np.array(X_ex)
+
+        return max(
+            dist.directed_hausdorff(X_net, X_ex)[0],
+            dist.directed_hausdorff(X_ex, X_net)[0],
+        )
+
+    def plot_result(self, save_plots):
         makePlots.loss_bernoulli(self.loss_history, save_plots, self.fig_storage)
 
         makePlots.edp_contour_bernoulli(
@@ -547,3 +571,98 @@ class Geo_Net:
             save_plots,
             f"{self.fig_storage}_optimality",
         )
+
+        if self.a == 0.5:
+            n_pts = 10_000
+            theta = torch.linspace(
+                0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64
+            )[:, None]
+            x = self.rho_max * torch.cos(theta)
+            y = self.rho_max * torch.sin(theta)
+            xT, yT = self.apply_symplecto(x, y)
+
+            x0 = xT.sum() / n_pts
+            y0 = yT.sum() / n_pts
+
+            makePlots.shape_error(
+                self.rho_max,
+                lambda x, y: self.apply_symplecto(x, y),
+                lambda x, y: (x + x0, y + y0),
+                self.get_hausdorff_distance,
+                save_plots,
+                f"{self.fig_storage}_shape_error",
+            )
+
+            print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / n_pts}")
+
+    def get_fv_with_random_function(self, n_pts=50_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        self.make_collocation(n_pts)
+        x, y = self.x_collocation, self.y_collocation
+
+        u = self.get_u(x, y)
+        a, b, c, d = self.get_metric_tensor(x, y)
+
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+
+        xT, yT = self.apply_symplecto(x, y)
+
+        alpha = bc.compute_bc_mul(
+            x,
+            y,
+            self.rho_min,
+            self.rho_max,
+            name=self.boundary_condition,
+            xT=xT,
+            yT=yT,
+            a=self.a,
+            b=self.b,
+        )
+
+        beta = bc.compute_bc_add(
+            x,
+            y,
+            self.rho_max,
+            name=self.boundary_condition,
+            xT=xT,
+            yT=yT,
+            a=self.a,
+            b=self.b,
+        )
+
+        coeff = torch.rand(6)
+        constant = coeff[0]
+        linear = coeff[1] * x + coeff[2] * y
+        quadratic = coeff[3] * x**2 + coeff[4] * x * y + coeff[5] * y**2
+        polynomial = constant + linear + quadratic
+
+        phi = polynomial * alpha + beta
+
+        dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
+        dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
+
+        term_x = (a * dx_u + b * dy_u) * dx_phi
+        term_y = (c * dx_u + d * dy_u) * dy_phi
+        A_grad_u_grad_phi = term_x + term_y
+
+        return A_grad_u_grad_phi.sum().item() / x.shape[0] * self.Vol
+
+    def compute_stats(self, n_pts=50_000, n_random=1_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        assert isinstance(n_random, int) and n_random > 0
+
+        residuals = torch.zeros(n_random)
+        for i in range(n_random):
+            if i % 100 == 0:
+                print(f"Computing residuals... {int(100 * i / n_random)}% done")
+            residuals[i] = self.get_fv_with_random_function(n_pts)
+
+        residuals = torch.abs(residuals)
+
+        print(f"\nMean residual: {residuals.mean():3.2e}")
+        print(f"Max residual: {residuals.max():3.2e}")
+        print(f"Min residual: {residuals.min():3.2e}")
+        print(f"Variance residual: {residuals.var():3.2e}")
+
+        return residuals

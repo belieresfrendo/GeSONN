@@ -16,24 +16,24 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    # train = False
+    train = False
 
     deepGeoDict = {
         "pde_learning_rate": 5e-3,
         "sympnet_learning_rate": 5e-3,
-        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
-        "nb_of_networks": 4,
+        "layer_sizes": [2, 10, 20, 20, 10, 1],
+        "nb_of_networks": 2,
         "networks_size": 4,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "SIAM_exp",
+        "file_name": "SIAM_one_backup",
         "to_be_trained": True,
-        "source_term": "exp",
+        "source_term": "one",
         "boundary_condition": "homogeneous_dirichlet",
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 2000
+    epochs = 9000
     n_collocation = 5_000
     new_training = False
     # new_training = True

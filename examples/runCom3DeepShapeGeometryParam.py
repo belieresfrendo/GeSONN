@@ -11,7 +11,7 @@ print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryPara
 
 if __name__ == "__main__":
     train = True
-    # train = False
+    train = False
 
     # ==============================================================
     # Parameters to be modified freely by the user
@@ -20,14 +20,14 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 5e-3,
         "sympnet_learning_rate": 5e-3,
-        "layer_sizes": [3, 20, 40, 40, 20, 1],
-        "nb_of_networks": 6,
-        "networks_size": 8,
+        "layer_sizes": [3, 10, 20, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 6,
         "rho_min": 0,
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 2.0,
-        "file_name": "SIAM_bizaroid",
+        "file_name": "SIAM_bizaroid_backup",
         "to_be_trained": True,
         "source_term": "bizaroid",
         "boundary_condition": "homogeneous_dirichlet",
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     epochs = 1_000
     n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

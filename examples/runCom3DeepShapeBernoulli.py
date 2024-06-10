@@ -19,24 +19,24 @@ if __name__ == "__main__":
     # train = False
 
     deepGeoDict = {
-        "pde_learning_rate": 5e-3,
-        "sympnet_learning_rate": 5e-3,
-        "layer_sizes": [2, 40, 80, 40, 1],
-        "nb_of_networks": 2,
-        "networks_size": 5,
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
+        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 4,
         "rho_min": 0.5,
         "rho_max": 1,
-        "file_name": "bernoulli_SIAM",
+        "file_name": "bernoulli_SIAM_new",
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
-        "a": 0.6,
+        "a": 0.5,
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 200
-    n_collocation = 10_000
+    epochs = 1_000
+    n_collocation = 2_500
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

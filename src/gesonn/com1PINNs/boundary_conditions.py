@@ -31,3 +31,14 @@ def compute_bc_mul(x, y, rho_min, rho_max, name=None, xT=None, yT=None, a=None, 
         bc_mul = (rho_2 - rho_max**2) * (rhoT_2 - 1)
 
     return bc_mul
+
+
+def compute_bc_add(x, y, rho_max, name=None, xT=None, yT=None, a=None, b=None):
+    bc_add = 0
+    rho_2 = x**2 + y**2
+
+    if name == "bernoulli":
+        rhoT_2 = (xT / a) ** 2 + (yT / b) ** 2
+        bc_add = (rho_max**2 - rho_2) / (rho_max**2 - rho_2 + rhoT_2 - 1)
+
+    return bc_add
