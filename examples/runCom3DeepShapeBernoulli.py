@@ -15,8 +15,8 @@ if __name__ == "__main__":
     # Parameters to be modified freely by the user
     # ==============================================================
 
-    train = True
-    # train = False
+    # train = True
+    train = False
 
     deepGeoDict = {
         "pde_learning_rate": 1e-2,

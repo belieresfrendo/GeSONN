@@ -613,18 +613,7 @@ class Geo_Net:
             y,
             self.rho_min,
             self.rho_max,
-            name=self.boundary_condition,
-            xT=xT,
-            yT=yT,
-            a=self.a,
-            b=self.b,
-        )
-
-        beta = bc.compute_bc_add(
-            x,
-            y,
-            self.rho_max,
-            name=self.boundary_condition,
+            name="homogeneous_dirichlet",
             xT=xT,
             yT=yT,
             a=self.a,
@@ -637,7 +626,7 @@ class Geo_Net:
         quadratic = coeff[3] * x**2 + coeff[4] * x * y + coeff[5] * y**2
         polynomial = constant + linear + quadratic
 
-        phi = polynomial * alpha + beta
+        phi = polynomial * alpha
 
         dx_phi = torch.autograd.grad(phi.sum(), x, create_graph=True)[0]
         dy_phi = torch.autograd.grad(phi.sum(), y, create_graph=True)[0]
