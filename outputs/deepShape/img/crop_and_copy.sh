@@ -35,3 +35,8 @@ pdfcrop.sh param_SIAM_bizaroid_backup_solution_mu_1.08.pdf param_SIAM_bizaroid_b
 pdfcrop.sh param_SIAM_bizaroid_backup_solution_mu_1.82.pdf param_SIAM_bizaroid_backup_solution_mu_1.82_cropped.pdf
 
 cp param_SIAM_bizaroid_*_cropped.pdf ../../../../papier_sympnet/img/com3/f_bizaroid_param/
+
+pdfcrop.sh bernoulli_SIAM_a_05_backup_solution.pdf bernoulli_SIAM_a_05_backup_solution_cropped.pdf
+pdfcrop.sh bernoulli_SIAM_a_05_backup_optimality.pdf bernoulli_SIAM_a_05_backup_optimality_cropped.pdf
+
+cp bernoulli_SIAM_a_05_backup_*_cropped.pdf ../../../../papier_sympnet/img/com3/bernoulli/
