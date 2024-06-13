@@ -55,6 +55,7 @@ def loss_bernoulli(loss_history, save_plots, name):
 
     plt.show()
 
+
 def add_colorbar(im, aspect=20, pad_fraction=0.5, **kwargs):
     """Add a vertical color bar to an image plot."""
     from mpl_toolkits import axes_grid1
@@ -375,6 +376,23 @@ def edp_contour_param_source(
         plt.show()
 
 
+def draw_ellipse(ax, a, b):
+    from matplotlib.patches import Ellipse
+
+    ellipse = Ellipse(
+        xy=(0, 0), width=2 * a, height=2 * b, edgecolor="k", fc="None", lw=3
+    )
+    ax.add_patch(ellipse)
+
+
+def draw_inner_shape(ax, inner_shape):
+    inner_name = inner_shape[0]
+    if inner_name == "ellipse":
+        draw_ellipse(ax, *inner_shape[1:])
+    else:
+        raise NotImplementedError(f"Inner shape {inner_name} not implemented")
+
+
 def edp_contour_bernoulli(
     rho_max,
     a,
@@ -388,6 +406,7 @@ def edp_contour_bernoulli(
     n_contour=250,
     draw_contours=True,
     n_drawn_contours=10,
+    inner_shape=None,
 ):
     import numpy as np
     import torch
@@ -448,6 +467,9 @@ def edp_contour_bernoulli(
         )
 
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
+    if inner_shape is not None:
+        draw_inner_shape(ax, inner_shape)
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)
@@ -641,7 +663,7 @@ def param_shape_superposition(
     plt.show()
 
 
-def optimality_condition(get_optimality_condition, save_plots, name):
+def optimality_condition(get_optimality_condition, save_plots, name, inner_shape=None):
     n_pts = 10_000
 
     optimality_condition, xT, yT = get_optimality_condition(n_pts)
@@ -662,6 +684,9 @@ def optimality_condition(get_optimality_condition, save_plots, name):
     )
 
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
+    if inner_shape is not None:
+        draw_inner_shape(ax, inner_shape)
 
     ax.set_aspect("equal")
     plt.gca().set_rasterization_zorder(-1)

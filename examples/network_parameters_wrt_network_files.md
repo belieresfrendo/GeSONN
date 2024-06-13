@@ -126,3 +126,23 @@ bernoulli_SIAM_a_05_backup.pth
 
     epochs = 15_000
     n_collocation = 2_500
+
+bernoulli_SIAM_a_065_backup.pth
+
+    deepGeoDict = {
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
+        "layer_sizes": [2, 20, 40, 40, 40, 20, 1],
+        "nb_of_networks": 4,
+        "networks_size": 8,
+        "rho_min": 0.5,
+        "rho_max": 1,
+        "file_name": "bernoulli_SIAM_a_065_backup",
+        "to_be_trained": True,
+        "boundary_condition": "bernoulli",
+        "a": 0.65,
+        "pinn_activation": torch.tanh,
+    }
+
+    epochs = 29_000
+    n_collocation = 5_000

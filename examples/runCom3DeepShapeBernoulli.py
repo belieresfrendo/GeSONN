@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # Parameters to be modified freely by the user
     # ==============================================================
 
-    # train = True
+    train = True
     train = False
 
     deepGeoDict = {
@@ -26,14 +26,14 @@ if __name__ == "__main__":
         "networks_size": 4,
         "rho_min": 0.5,
         "rho_max": 1,
-        "file_name": "bernoulli_SIAM_new",
+        "file_name": "bernoulli_SIAM_a_05_backup",
         "to_be_trained": True,
         "boundary_condition": "bernoulli",
         "a": 0.5,
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 1_000
+    epochs = 15_000
     n_collocation = 2_500
     new_training = False
     # new_training = True

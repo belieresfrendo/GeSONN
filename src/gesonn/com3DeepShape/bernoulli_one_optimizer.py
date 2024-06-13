@@ -564,12 +564,14 @@ class Geo_Net:
             lambda x, y: self.apply_inverse_symplecto(x, y),
             save_plots,
             f"{self.fig_storage}_solution",
+            inner_shape=["ellipse", self.a, self.b],
         )
 
         makePlots.optimality_condition(
             self.get_optimality_condition,
             save_plots,
             f"{self.fig_storage}_optimality",
+            inner_shape=["ellipse", self.a, self.b],
         )
 
         if self.a == 0.5:
