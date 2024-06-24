@@ -28,7 +28,6 @@ if __name__ == "__main__":
         "to_be_trained": train,
         "source_term": "one",
         "boundary_condition": "homogeneous_dirichlet",
-        "tikhonov" : 0,
     }
 
     epochs = 10_000

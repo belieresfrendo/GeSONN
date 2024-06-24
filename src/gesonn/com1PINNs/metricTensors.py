@@ -27,6 +27,7 @@ def apply_symplecto(x, y, mu=0.5, name=None):
     elif name == "inverse_ellipse_benchmark":
         y = 0.5 * y + x - x
         x = 2 * x + y - y
-    # else:
-    #     raise ValueError(f"Unknown symplecto name: {name}")
+    elif name is None:
+        x = x + 0 * y
+        y = y + 0 * x
     return x, y

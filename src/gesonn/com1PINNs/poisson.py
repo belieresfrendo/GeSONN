@@ -80,7 +80,6 @@ class PINNs:
         "to_be_trained": True,
         "source_term": "one",
         "boundary_condition": "dirichlet_homgene",
-        "tikhonov": 0,
     }
 
     # constructeur
@@ -105,8 +104,6 @@ class PINNs:
             PINNsDict["boundary_condition"] = self.DEFAULT_PINNS_DICT[
                 "boundary_condition"
             ]
-        if PINNsDict.get("tikhonov") is None:
-            PINNsDict["tikhonov"] = self.DEFAULT_PINNS_DICT["tikhonov"]
         if PINNsDict.get("to_be_trained") is None:
             PINNsDict["to_be_trained"] = self.DEFAULT_PINNS_DICT["to_be_trained"]
 
@@ -130,8 +127,6 @@ class PINNs:
         self.source_term = PINNsDict["source_term"]
         # Boundary condition of the Poisson problem
         self.boundary_condition = PINNsDict["boundary_condition"]
-        # thikhonov regularization epsilon parameter
-        self.pen_tikhonov = PINNsDict["tikhonov"]
 
         self.create_network()
         self.load(self.file_name)
@@ -345,10 +340,6 @@ class PINNs:
 
                 dirichlet_loss = 0.5 * grad_u_2 - fu
                 loss = dirichlet_loss
-
-                if self.pen_tikhonov != 0:
-                    tikhonov = grad_u_2 - fu
-                    loss += self.pen_tikhonov * tikhonov**2
 
                 self.loss = loss.sum() * self.Vol / n_collocation
 
