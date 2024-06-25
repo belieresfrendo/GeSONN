@@ -14,6 +14,10 @@ def apply_BC(u, x, y, rho_min, rho_max, name=None, xT=None, yT=None, a=None, b=N
         bc_mul = (rho_2 - rho_max**2) * (rhoT_2 - 1)
         bc_add = (rho_max**2 - rho_2) / (rho_max**2 - rho_2 + rhoT_2 - 1)
 
+    elif name == "homogeneous_neumann" or name == "robin_one":
+        bc_mul = 1
+        bc_add = 0
+
     return u * bc_mul + bc_add
 
 

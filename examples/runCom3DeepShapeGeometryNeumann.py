@@ -4,10 +4,10 @@ import os
 import torch
 
 # local imports
-from gesonn.com1PINNs import poisson
+from gesonn.com3DeepShape import geometryNeumann
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}")
+print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryNeumann.py")
 
 if __name__ == "__main__":
 
@@ -16,21 +16,24 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    # train = False
+    train = False
 
-    PINNsDict = {
-        "learning_rate": 5e-3,
-        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
+    deepGeoDict = {
+        "pde_learning_rate": 5e-3,
+        "sympnet_learning_rate": 5e-3,
+        "layer_sizes": [2, 10, 20, 20, 10, 1],
+        "nb_of_networks": 2,
+        "networks_size": 4,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "robin",
-        "symplecto_name": "bizaroid",
-        "to_be_trained": train,
+        "file_name": "neumann_shapo",
+        "to_be_trained": True,
         "source_term": "exp",
-        "boundary_condition": "robin_one",
+        "boundary_condition": "homogeneous_neumann",
+        "pinn_activation": torch.tanh,
     }
 
-    epochs = 1000
+    epochs = 10_000
     n_collocation = 10_000
     new_training = False
     # new_training = True
@@ -45,12 +48,12 @@ if __name__ == "__main__":
         if new_training:
             try:
                 os.remove(
-                    "./../outputs/PINNs/net/" + PINNsDict["file_name"] + ".pth"
+                    "./../outputs/deepShape/net/" + deepGeoDict["file_name"] + ".pth"
                 )
             except FileNotFoundError:
                 pass
 
-        network = poisson.PINNs(PINNsDict=PINNsDict)
+        network = geometryNeumann.Geo_Net(deepGeoDict=deepGeoDict)
 
         if device.type == "cpu":
             tps = network.train(
@@ -69,5 +72,5 @@ if __name__ == "__main__":
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
-        network = poisson.PINNs(PINNsDict=PINNsDict)
+        network = geometryNeumann.Geo_Net(deepGeoDict=deepGeoDict)
         network.plot_result(save_plots)

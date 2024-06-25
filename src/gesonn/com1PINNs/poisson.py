@@ -233,6 +233,9 @@ class PINNs:
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
+        if self.boundary_condition == "homogeneous_neumann":
+            return A_grad_u_grad_u + u**2
+
         return A_grad_u_grad_u
 
     def right_hand_term(self, x, y):
@@ -268,6 +271,8 @@ class PINNs:
         )
 
         res = dx_A_grad_u_x + dy_A_grad_u_y + f
+        if self.boundary_condition == "homogeneous_neumann":
+            res += -u
 
         return -res
 

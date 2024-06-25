@@ -697,6 +697,51 @@ def optimality_condition(get_optimality_condition, save_plots, name, inner_shape
 
     print(f"Variance of the optimality condition: {optimality_condition.var()}")
 
+def dn_u(get_limit_condition, rho_max, save_plots, name, inner_shape=None):
+    n_pts = 10_000
+    shape = (n_pts, 1)
+
+    def random(min_value, max_value, shape, requires_grad=False, device=device):
+        random_numbers = torch.rand(
+            shape, device=device, dtype=torch.double, requires_grad=requires_grad
+        )
+        return min_value + (max_value - min_value) * random_numbers
+
+    theta = random(
+        0, 2 * torch.math.pi, shape, requires_grad=True
+    )
+    x_border = rho_max * torch.cos(theta)
+    y_border = rho_max * torch.sin(theta)
+
+
+    dn_u, xT, yT = get_limit_condition(x_border, y_border, theta)
+    xT_min, xT_max = xT.min().item(), xT.max().item()
+    yT_min, yT_max = yT.min().item(), yT.max().item()
+    lx = xT_max - xT_min
+    ly = yT_max - yT_min
+
+    # draw the contours
+    _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
+
+    im = ax.scatter(
+        xT.detach().cpu(),
+        yT.detach().cpu(),
+        s=1,
+        c=dn_u.detach().cpu(),
+        cmap="turbo",
+    )
+
+    add_colorbar(im, format=ticker.FuncFormatter(fmt))
+
+    if inner_shape is not None:
+        draw_inner_shape(ax, inner_shape)
+
+    ax.set_aspect("equal")
+    plt.gca().set_rasterization_zorder(-1)
+    if save_plots:
+        plt.savefig(name + ".pdf", bbox_inches="tight")
+
+    plt.show()
 
 def optimality_condition_param(
     mu_min, mu_max, get_optimality_condition, save_plots, name, mu_list=None
