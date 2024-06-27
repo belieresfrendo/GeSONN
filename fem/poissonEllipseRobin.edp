@@ -1,0 +1,43 @@
+////////////////////////////////////////////////////////////////////////////
+//  Author: Amaury BF (IRMA)                            Date: 02/12/2023  //
+//                                                                        //
+//  To run: FreeFem++ poissonEllipse.edp                                  //
+//                                                                        //
+//  FreeFem++ Finite Elements routine to:                                 //
+//      -> solve with FEM poisson problem in an ellipse                   //
+////////////////////////////////////////////////////////////////////////////
+
+
+// Parameters
+real a = 1/0.5;
+int n = 500;
+real xmin=-a, xmax=a, ymin=-1/a, ymax=1/a;
+
+// Mesh
+border gamma(t=0, 1){x = a*cos(2*pi*t); y = 1/a*sin(2*pi*t); label=1;}
+mesh Th = buildmesh(gamma(n));
+
+// Fespace
+fespace Uh(Th, P2);
+Uh u, uh, f;
+
+// Macro
+macro grad(u) [dx(u), dy(u)] //
+
+// Problem
+problem Laplacian (u, uh)
+	= int2d(Th)(
+		  grad(u)' * grad(uh) + u * uh
+	)
+    + int1d(Th, gamma)(u*uh)
+    - int2d(Th)(
+		  f * uh
+	);
+
+f = 1;
+// f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
+// Solve
+Laplacian;
+
+// Plot
+plot(u, value=true, fill=true);
