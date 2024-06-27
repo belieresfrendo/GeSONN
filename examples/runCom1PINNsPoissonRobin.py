@@ -19,21 +19,21 @@ if __name__ == "__main__":
     # train = False
 
     PINNsDict = {
-        "learning_rate": 5e-3,
+        "learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
         "rho_min": 0,
         "rho_max": 1,
         "file_name": "robin",
-        "symplecto_name": "bizaroid",
+        "symplecto_name": "ellipse",
         "to_be_trained": train,
-        "source_term": "exp",
-        "boundary_condition": "robin_one",
+        "source_term": "one",
+        "boundary_condition": "robin",
     }
 
-    epochs = 20_000
-    n_collocation = 50_000
+    epochs = 2_000
+    n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 
