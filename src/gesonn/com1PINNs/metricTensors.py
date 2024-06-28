@@ -2,7 +2,7 @@
 import torch
 
 
-def apply_symplecto(x, y, mu=0.5, name=None):
+def apply_symplecto(x, y, mu=0.8, name=None):
     if name == "bizaroid":
         x = x - mu * y**2 + 0.3 * torch.sin(1 / mu * y) - 0.2 * torch.sin(8.0 * y)
         y = y + 0.2 * mu * x + 0.12 * torch.cos(x)

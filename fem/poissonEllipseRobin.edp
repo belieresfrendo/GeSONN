@@ -9,7 +9,7 @@
 
 
 // Parameters
-real a = 1/0.5;
+real a = 1/0.8;
 int n = 500;
 real xmin=-a, xmax=a, ymin=-1/a, ymax=1/a;
 
@@ -29,7 +29,7 @@ problem Laplacian (u, uh)
 	= int2d(Th)(
 		  grad(u)' * grad(uh) + u * uh
 	)
-    + int1d(Th, gamma)(u*uh)
+    + int1d(Th, 1)(u*uh)
     - int2d(Th)(
 		  f * uh
 	);
@@ -38,6 +38,12 @@ f = 1;
 // f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
 // Solve
 Laplacian;
+
+// Dirichlet energy
+cout 	<< 	"E(Omega) : "
+		<<	0.5 * (int2d(Th)(grad(u)'*grad(u) + u^2)+ int1d(Th, gamma)(u^2))
+    		- int2d(Th)(f*u)
+		<< endl;
 
 // Plot
 plot(u, value=true, fill=true);

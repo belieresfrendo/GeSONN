@@ -19,8 +19,8 @@ if __name__ == "__main__":
     # train = False
 
     PINNsDict = {
-        "learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
+        "learning_rate": 5e-3,
+        "layer_sizes": [2, 40, 80, 40, 1],
         "rho_min": 0,
         "rho_max": 1,
         "file_name": "robin",
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     epochs = 2_000
     n_collocation = 10_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 

@@ -20,6 +20,7 @@ Inspired from a code given by V MICHEL DANSAC (INRIA)
 import copy
 import os
 import time
+import math
 
 import torch
 import torch.nn as nn
@@ -121,7 +122,8 @@ class PINNs:
         # Geometry of the shape
         self.rho_min, self.rho_max = PINNsDict["rho_min"], PINNsDict["rho_max"]
         self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.Vol = torch.pi * (self.rho_max - self.rho_min) ** 2
+        self.Vol_Omega = torch.pi * (self.rho_max - self.rho_min) ** 2
+        self.Vol_Gamma = 2 * torch.pi * self.rho_max
         self.name_symplecto = PINNsDict["symplecto_name"]
         # Source term of the Poisson problem
         self.source_term = PINNsDict["source_term"]
@@ -204,11 +206,10 @@ class PINNs:
 
         if self.name_symplecto is not None:
             J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
-            fac = (J_a * J_d - J_b * J_c) ** 2
-            A_a = (J_d**2 + J_b**2) / fac
-            A_b = -(J_c * J_d + J_a * J_b) / fac
+            A_a = J_d**2 + J_b**2
+            A_b = -(J_c * J_d + J_a * J_b)
             A_c = A_b
-            A_d = (J_c**2 + J_a**2) / fac
+            A_d = J_c**2 + J_a**2
 
         else:
             A_a = 1
@@ -227,15 +228,13 @@ class PINNs:
         J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
 
         return J_a, J_b, J_c, J_d
-    
+
     def get_tangential_jacobian(self, x, y, theta):
         J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
         nx, ny = self.get_n(theta)
 
-        det = J_a*J_d - J_c*J_b
-
-        Jac_tan_x = (J_d * nx - J_c * ny)/det
-        Jac_tan_y = (- J_b * nx + J_a * ny)/det
+        Jac_tan_x = J_d * nx - J_c * ny
+        Jac_tan_y = -J_b * nx + J_a * ny
 
         return torch.sqrt(Jac_tan_x**2 + Jac_tan_y**2)
 
@@ -248,28 +247,10 @@ class PINNs:
         norm = torch.sqrt(nTx**2 + nTy**2)
 
         return nTx / norm, nTy / norm
-    
+
     def get_n(self, theta):
         nx, ny = torch.cos(theta), torch.sin(theta)
-        norm = torch.sqrt(nx**2 + ny**2)
-
-        return nx / norm, ny / norm
-
-    # def get_limit_condition(self, x, y, theta):
-    #     xT, yT = metricTensors.apply_symplecto(x, y, name=self.name_symplecto)
-    #     nTx, nTy = self.get_n(x, y, theta)
-    #     u = self.get_u(x, y)
-    #     J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
-
-    #     dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
-    #     dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
-
-    #     dx_u_rond_T = J_a * dx_u + J_c * dy_u
-    #     dy_u_rond_T = J_b * dx_u + J_d * dy_u
-
-    #     dn_u = dx_u_rond_T * nTx + dy_u_rond_T * nTy
-
-    #     return dn_u + u, xT, yT
+        return nx, ny
 
     def left_hand_term(self, x, y, x_border, y_border, theta):
         u = self.get_u(x, y)
@@ -283,7 +264,7 @@ class PINNs:
         gamma_0_u = self.get_u(x_border, y_border)
         Jac_tan = self.get_tangential_jacobian(x_border, y_border, theta)
 
-        return A_grad_u_grad_u + u**2 + Jac_tan * gamma_0_u
+        return A_grad_u_grad_u + u**2, Jac_tan * gamma_0_u**2
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -318,7 +299,7 @@ class PINNs:
             name=self.source_term,
         )
 
-        res = - dx_A_grad_u_x - dy_A_grad_u_y + u + f
+        res = -dx_A_grad_u_x - dy_A_grad_u_y + u - f
 
         return res
 
@@ -383,7 +364,7 @@ class PINNs:
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
 
-                auu = self.left_hand_term(
+                auu_Omega, auu_Gamma = self.left_hand_term(
                     self.x_collocation,
                     self.y_collocation,
                     self.x_border_collocation,
@@ -395,10 +376,12 @@ class PINNs:
                     self.y_collocation,
                 )
 
-                dirichlet_loss = 0.5 * auu - lu
-                loss = dirichlet_loss
-
-                self.loss = loss.sum() * self.Vol / n_collocation
+                loss_Omega = 0.5 * auu_Omega - lu
+                loss_Gamma = 0.5 * auu_Gamma
+                self.loss = (
+                    loss_Omega.sum() * self.Vol_Omega / n_collocation
+                    + loss_Gamma.sum() * self.Vol_Gamma / n_collocation
+                )
 
             self.loss.backward()
             self.u_optimizer.step()
@@ -467,22 +450,15 @@ class PINNs:
             n_visu=n_visu,
         )
 
-        # makePlots.edp_contour(
-        #     self.rho_min,
-        #     self.rho_max,
-        #     self.get_fv,
-        #     lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
-        #     lambda x, y: metricTensors.apply_symplecto(
-        #         x, y, name=f"inverse_{self.name_symplecto}"
-        #     ),
-        #     save_plots,
-        #     self.fig_storage + "_residual",
-        #     n_visu=n_visu,
-        # )
-
-        # makePlots.dn_u(
-        #     self.get_limit_condition,
-        #     self.rho_max,
-        #     save_plots,
-        #     f"{self.fig_storage}_optimality",
-        # )
+        makePlots.edp_contour(
+            self.rho_min,
+            self.rho_max,
+            self.get_res,
+            lambda x, y: metricTensors.apply_symplecto(x, y, name=self.name_symplecto),
+            lambda x, y: metricTensors.apply_symplecto(
+                x, y, name=f"inverse_{self.name_symplecto}"
+            ),
+            save_plots,
+            self.fig_storage,
+            n_visu=n_visu,
+        )
