@@ -74,7 +74,6 @@ class PINNs:
     DEFAULT_PINNS_DICT = {
         "learning_rate": 5e-3,
         "layer_sizes": [2, 10, 20, 20, 10, 1],
-        "rho_min": 0,
         "rho_max": 1,
         "file_name": "default",
         "symplecto_name": None,
@@ -91,8 +90,6 @@ class PINNs:
             PINNsDict["learning_rate"] = self.DEFAULT_PINNS_DICT["learning_rate"]
         if PINNsDict.get("layer_sizes") is None:
             PINNsDict["layer_sizes"] = self.DEFAULT_PINNS_DICT["layer_sizes"]
-        if PINNsDict.get("rho_min") is None:
-            PINNsDict["rho_min"] = self.DEFAULT_PINNS_DICT["rho_min"]
         if PINNsDict.get("rho_max") is None:
             PINNsDict["rho_max"] = self.DEFAULT_PINNS_DICT["rho_max"]
         if PINNsDict.get("file_name") is None:
@@ -120,7 +117,7 @@ class PINNs:
         # Layer sizes
         self.layer_sizes = PINNsDict["layer_sizes"]
         # Geometry of the shape
-        self.rho_min, self.rho_max = PINNsDict["rho_min"], PINNsDict["rho_max"]
+        self.rho_min, self.rho_max = 0, PINNsDict["rho_max"]
         self.theta_min, self.theta_max = 0, 2 * torch.pi
         self.Vol_Omega = torch.pi * (self.rho_max - self.rho_min) ** 2
         self.Vol_Gamma = 2 * torch.pi * self.rho_max
@@ -277,11 +274,6 @@ class PINNs:
 
         return f * u
 
-    def get_fv(self, x, y, x_border, y_border, theta):
-        auu = self.left_hand_term(x, y, x_border, y_border, theta)
-        lu = self.right_hand_term(x, y)
-
-        return auu - lu
 
     def get_res(self, x, y):
         u = self.get_u(x, y)

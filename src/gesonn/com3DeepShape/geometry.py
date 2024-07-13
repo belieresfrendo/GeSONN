@@ -289,11 +289,10 @@ class Geo_Net:
 
         return A_a, A_b, A_c, A_d
 
-    def get_dn_u(self, x, y):
+    def get_dn_u(self, x, y, theta):
         J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
 
-        det = J_a * J_d - J_b * J_c
-        a, b, c, d = det * J_d, -det * J_c, -det * J_b, det * J_a
+        a, b, c, d = J_d, -J_c, -J_b, J_a
 
         u = self.get_u(x, y)
 
@@ -303,7 +302,16 @@ class Geo_Net:
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
 
+        # nx, ny = self.get_n(theta)
+        # Jac_tan_x = a * nx + b * ny
+        # Jac_tan_y = c * nx + d * ny
+        # Jac_tan = torch.sqrt((Jac_tan_x**2 + Jac_tan_y**2))
+
         return torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
+        # return Jac_tan * torch.sqrt(Jt_dx_u**2 + Jt_dy_u**2)
+
+    def get_n(self, theta):
+        return torch.cos(theta), torch.sin(theta)
 
     def get_optimality_condition(self, n=10_000):
         theta = torch.linspace(
@@ -312,7 +320,7 @@ class Geo_Net:
         x = self.rho_max * torch.cos(theta)
         y = self.rho_max * torch.sin(theta)
         xT, yT = self.apply_symplecto(x, y)
-        dn_u = self.get_dn_u(x, y)
+        dn_u = self.get_dn_u(x, y, theta)
 
         return dn_u - dn_u.mean(), xT, yT
 
@@ -381,27 +389,16 @@ class Geo_Net:
     def make_border_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
-        self.theta_collocation = self.random(
+        self.theta_border_collocation = self.random(
             self.theta_min, self.theta_max, shape, requires_grad=True
         )
 
-        self.x_border_collocation = self.rho_max * torch.cos(self.theta_collocation)
-        self.y_border_collocation = self.rho_max * torch.sin(self.theta_collocation)
-
-    def get_mes_border(self):
-        n = 10_000
-        theta = torch.linspace(self.theta_min, self.theta_max, n, requires_grad=True)[
-            :, None
-        ]
-        x = self.rho_max * torch.cos(theta)
-        y = self.rho_max * torch.sin(theta)
-        x, y = self.apply_symplecto(x, y)
-        rho = torch.sqrt(x * x + y * y)
-        lenghts = torch.sqrt(
-            rho[:-1] ** 2 + rho[1:] ** 2 - 2 * (x[:-1] * x[1:] + y[:-1] * y[1:])
+        self.x_border_collocation = self.rho_max * torch.cos(
+            self.theta_border_collocation
         )
-
-        return lenghts.sum()
+        self.y_border_collocation = self.rho_max * torch.sin(
+            self.theta_border_collocation
+        )
 
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):
@@ -456,7 +453,9 @@ class Geo_Net:
 
                 self.make_border_collocation(n_collocation)
                 self.optimality_condition = self.get_dn_u(
-                    self.x_border_collocation, self.y_border_collocation
+                    self.x_border_collocation,
+                    self.y_border_collocation,
+                    self.theta_border_collocation,
                 ).var()
 
             self.loss.backward()
@@ -471,7 +470,7 @@ class Geo_Net:
             )
 
             if epoch % 500 == 0:
-                print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
+                print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}")
                 try:
                     self.save(
                         self.file_name,

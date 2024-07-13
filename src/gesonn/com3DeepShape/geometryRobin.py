@@ -110,7 +110,8 @@ class Geo_Net:
         # Geometry of the shape
         self.rho_min, self.rho_max = 0, deepGeoDict["rho_max"]
         self.theta_min, self.theta_max = 0, 2 * torch.pi
-        self.Vol = torch.pi * self.rho_max**2
+        self.Vol_Omega = torch.pi * self.rho_max**2
+        self.Vol_Gamma = 2 * torch.pi * self.rho_max
         # Source term of the Poisson problem
         self.source_term = deepGeoDict["source_term"]
         # Boundary condition of the Poisson problem
@@ -262,52 +263,60 @@ class Geo_Net:
             file_name,
         )
 
-    def get_jacobian_matrix(self, x, y):
-        xT, yT = self.apply_symplecto(x, y)
-
-        J_a = torch.autograd.grad(xT.sum(), x, create_graph=True)[0]
-        J_b = torch.autograd.grad(xT.sum(), y, create_graph=True)[0]
-        J_c = torch.autograd.grad(yT.sum(), x, create_graph=True)[0]
-        J_d = torch.autograd.grad(yT.sum(), y, create_graph=True)[0]
-
-        return J_a, J_b, J_c, J_d
-
     def get_metric_tensor(self, x, y):
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        J_a, J_b, J_c, J_d = self.get_jacobian_matrix(x, y)
-
-        fac = (J_a * J_d - J_b * J_c) ** 2
-        A_a = (J_d**2 + J_b**2) / fac
-        A_b = -(J_c * J_d + J_a * J_b) / fac
-        A_c = -(J_c * J_d + J_a * J_b) / fac
-        A_d = (J_c**2 + J_a**2) / fac
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        A_a = J_d**2 + J_b**2
+        A_b = -(J_c * J_d + J_a * J_b)
+        A_c = A_b
+        A_d = J_c**2 + J_a**2
 
         return A_a, A_b, A_c, A_d
 
-    def get_boundary_optimality_condition(self, x, y):
-        u = self.get_u(x, y)
-        f = sourceTerms.get_f(*self.apply_symplecto(x, y), name=self.source_term)
+    def get_jacobian_T(self, x, y):
+        T = self.apply_symplecto(x, y)
 
-        return f + u / 2
+        J_a = torch.autograd.grad(T[0].sum(), x, create_graph=True)[0]
+        J_b = torch.autograd.grad(T[0].sum(), y, create_graph=True)[0]
+        J_c = torch.autograd.grad(T[1].sum(), x, create_graph=True)[0]
+        J_d = torch.autograd.grad(T[1].sum(), y, create_graph=True)[0]
 
-    def get_optimality_condition(self, n=10_000):
-        theta = torch.linspace(
-            0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64
-        )[:, None]
-        x = self.rho_max * torch.cos(theta)
-        y = self.rho_max * torch.sin(theta)
-        xT, yT = self.apply_symplecto(x, y)
-        boundary_optimality_condition = self.get_boundary_optimality_condition(x, y)
+        return J_a, J_b, J_c, J_d
 
-        return (
-            boundary_optimality_condition - boundary_optimality_condition.mean(),
-            xT,
-            yT,
-        )
+    def get_tangential_jacobian(self, x, y, theta):
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        nx, ny = self.get_n(theta)
 
-    def left_hand_term(self, x, y):
+        Jac_tan_x = J_d * nx - J_c * ny
+        Jac_tan_y = -J_b * nx + J_a * ny
+
+        return torch.sqrt(Jac_tan_x**2 + Jac_tan_y**2)
+
+    def get_nT(self, x, y, theta):
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        nx, ny = torch.cos(theta), torch.sin(theta)
+
+        nTx = J_d * nx - J_c * ny
+        nTy = -J_b * nx + J_a * ny
+        norm = torch.sqrt(nTx**2 + nTy**2)
+
+        return nTx / norm, nTy / norm
+
+    def get_n(self, theta):
+        nx, ny = torch.cos(theta), torch.sin(theta)
+        return nx, ny
+
+    def get_mean_curvature(self, x, y, theta):
+        nTx, nTy = self.get_nT(x, y, theta)
+        dx_nTx = torch.autograd.grad(nTx.sum(), x, create_graph=True)[0]
+        dy_nTy = torch.autograd.grad(nTy.sum(), y, create_graph=True)[0]
+        H = dx_nTx + dy_nTy
+
+        return H
+
+    def left_hand_term(self, x, y, x_border, y_border, theta):
         u = self.get_u(x, y)
         a, b, c, d = self.get_metric_tensor(x, y)
 
@@ -316,15 +325,31 @@ class Geo_Net:
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
-        return A_grad_u_grad_u + u**2
+        gamma_0_u = self.get_u(x_border, y_border)
+        Jac_tan = self.get_tangential_jacobian(x_border, y_border, theta)
+
+        return A_grad_u_grad_u + u**2, Jac_tan * gamma_0_u**2
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
 
         # terme source
-        f = sourceTerms.get_f(*self.apply_symplecto(x, y), name=self.source_term)
+        f = sourceTerms.get_f(
+            *self.apply_symplecto(x, y),
+            name=self.source_term,
+        )
 
         return f * u
+
+    def get_u(self, x, y):
+        return bc.apply_BC(
+            self.u_net(*self.apply_symplecto(x, y)),
+            x,
+            y,
+            self.rho_min,
+            self.rho_max,
+            name=self.boundary_condition,
+        )
 
     def apply_symplecto(self, x, y):
         x, y = x, y
@@ -339,15 +364,15 @@ class Geo_Net:
             x = x - self.up_nets[self.nb_of_networks - 1 - i](y)
         return x, y
 
-    def get_u(self, x, y):
-        return bc.apply_BC(
-            self.u_net(*self.apply_symplecto(x, y)),
-            x,
-            y,
-            self.rho_min,
-            self.rho_max,
-            name=self.boundary_condition,
+    def get_optimality_condition(self, x, y, theta):
+        f = sourceTerms.get_f(
+            *self.apply_symplecto(x, y),
+            name=self.source_term,
         )
+        u = self.get_u(x, y)
+        H = self.get_mean_curvature(x, y, theta)
+
+        return f + 0.5 * u * H
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -359,40 +384,18 @@ class Geo_Net:
     def make_collocation(self, n_collocation):
         shape = (n_collocation, 1)
 
-        rho_collocation = torch.sqrt(
+        self.rho_collocation = torch.sqrt(
             self.random(self.rho_min**2, self.rho_max**2, shape, requires_grad=True)
         )
         self.theta_collocation = self.random(
-            self.theta_min, self.theta_max, shape, requires_grad=True
+            0, 2 * torch.math.pi, shape, requires_grad=True
         )
 
-        self.x_collocation = rho_collocation * torch.cos(self.theta_collocation)
-        self.y_collocation = rho_collocation * torch.sin(self.theta_collocation)
-
-    def make_border_collocation(self, n_collocation):
-        shape = (n_collocation, 1)
-
-        self.theta_collocation = self.random(
-            self.theta_min, self.theta_max, shape, requires_grad=True
-        )
+        self.x_collocation = self.rho_collocation * torch.cos(self.theta_collocation)
+        self.y_collocation = self.rho_collocation * torch.sin(self.theta_collocation)
 
         self.x_border_collocation = self.rho_max * torch.cos(self.theta_collocation)
         self.y_border_collocation = self.rho_max * torch.sin(self.theta_collocation)
-
-    def get_mes_border(self):
-        n = 10_000
-        theta = torch.linspace(self.theta_min, self.theta_max, n, requires_grad=True)[
-            :, None
-        ]
-        x = self.rho_max * torch.cos(theta)
-        y = self.rho_max * torch.sin(theta)
-        x, y = self.apply_symplecto(x, y)
-        rho = torch.sqrt(x * x + y * y)
-        lenghts = torch.sqrt(
-            rho[:-1] ** 2 + rho[1:] ** 2 - 2 * (x[:-1] * x[1:] + y[:-1] * y[1:])
-        )
-
-        return lenghts.sum()
 
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):
@@ -433,22 +436,32 @@ class Geo_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
-                auu = self.left_hand_term(
+
+                auu_Omega, auu_Gamma = self.left_hand_term(
                     self.x_collocation,
                     self.y_collocation,
+                    self.x_border_collocation,
+                    self.y_border_collocation,
+                    self.theta_collocation,
                 )
                 lu = self.right_hand_term(
                     self.x_collocation,
                     self.y_collocation,
                 )
-                dirichlet_loss = 0.5 * auu - lu
 
-                self.loss = dirichlet_loss.sum() / n_collocation * self.Vol
+                loss_Omega = 0.5 * auu_Omega - lu
+                loss_Gamma = 0.5 * auu_Gamma
+                self.loss = (
+                    loss_Omega.sum() * self.Vol_Omega / n_collocation
+                    + loss_Gamma.sum() * self.Vol_Gamma / n_collocation
+                )
 
-                self.make_border_collocation(n_collocation)
-                self.optimality_condition = self.get_boundary_optimality_condition(
-                    self.x_border_collocation, self.y_border_collocation
+                self.optimality_condition = self.get_optimality_condition(
+                    self.x_border_collocation,
+                    self.y_border_collocation,
+                    self.theta_collocation,
                 ).var()
+                # self.optimality_condition = torch.tensor([0.0], device=device)
 
             self.loss.backward()
             for i in range(self.nb_of_networks):
@@ -502,6 +515,16 @@ class Geo_Net:
                     f"epoch {epoch: 5d}:    best loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}"
                 )
                 best_loss_value = self.loss.item()
+                best_loss = self.loss.clone()
+                best_optimality_condition = self.optimality_condition.clone()
+                best_optimality_condition_value = best_optimality_condition.item()
+                best_up_nets = self.copy_sympnet(self.up_nets)
+                best_up_optimizers = self.copy_sympnet(self.up_optimizers)
+                best_down_nets = self.copy_sympnet(self.down_nets)
+                best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+
+                best_u_net = copy.deepcopy(self.u_net.state_dict())
+                best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
 
         tps2 = time.time()
 
@@ -562,8 +585,22 @@ class Geo_Net:
             f"{self.fig_storage}_solution",
         )
 
-        makePlots.optimality_condition(
-            self.get_optimality_condition,
-            save_plots,
-            f"{self.fig_storage}_optimality",
+        n_visu = 50_000
+        self.make_collocation(n_visu)
+        optimaity_condition = self.get_optimality_condition(
+            self.x_border_collocation, self.y_border_collocation, self.theta_collocation
         )
+
+        import matplotlib.pyplot as plt
+
+        xT, yT = self.apply_symplecto(
+            self.x_border_collocation, self.y_border_collocation
+        )
+        _, ax = plt.subplots(figsize=(5, 5))
+        ax.scatter(
+            xT.detach().cpu(),
+            yT.detach().cpu(),
+            s=1,
+            c=optimaity_condition.detach().cpu(),
+        )
+        ax.set_aspect("equal")

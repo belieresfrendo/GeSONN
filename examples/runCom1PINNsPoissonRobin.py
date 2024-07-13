@@ -21,10 +21,9 @@ if __name__ == "__main__":
     PINNsDict = {
         "learning_rate": 5e-3,
         "layer_sizes": [2, 40, 80, 40, 1],
-        "rho_min": 0,
         "rho_max": 1,
         "file_name": "robin",
-        "symplecto_name": "ellipse",
+        "symplecto_name": "bizaroid",
         "to_be_trained": train,
         "source_term": "one",
         "boundary_condition": "robin",

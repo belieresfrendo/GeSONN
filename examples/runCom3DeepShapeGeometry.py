@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    train = False
+    # train = False
 
     deepGeoDict = {
         "pde_learning_rate": 5e-3,
@@ -26,17 +26,17 @@ if __name__ == "__main__":
         "networks_size": 4,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "SIAM_one_backup",
+        "file_name": "exp_jac_tan",
         "to_be_trained": True,
-        "source_term": "one",
+        "source_term": "exp",
         "boundary_condition": "homogeneous_dirichlet",
         "pinn_activation": torch.tanh,
     }
 
-    epochs = 9000
-    n_collocation = 5_000
+    epochs = 25_000
+    n_collocation = 10_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
