@@ -294,30 +294,42 @@ class Geo_Net:
 
         return torch.sqrt(Jac_tan_x**2 + Jac_tan_y**2)
 
+    def get_t(self, x, y):
+        return -y, x
+
     def get_nT(self, x, y):
         J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
-        nx, ny = self.get_n(x, y)
+        tx, ty = self.get_t(x, y)
 
-        nTx = J_d * nx - J_c * ny
-        nTy = -J_b * nx + J_a * ny
-        norm = torch.sqrt(nTx**2 + nTy**2)
+        tTx = J_a * tx + J_b * ty
+        tTy = J_c * tx + J_d * ty
+        norm = torch.sqrt(tTx**2 + tTy**2)
 
-        return nTx / norm, nTy / norm
+        return -tTy / norm, tTx / norm
 
     def get_n(self, x, y):
         nx, ny = x, y
         return nx, ny
 
     def get_mean_curvature(self, x, y):
-        nx, ny = self.get_n(x, y)
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
-        J_inv_trans_n_x = J_d * nx - J_c * ny
-        J_inv_trans_n_y = -J_b * nx + J_a * ny
+        xT, yT = self.apply_symplecto(x, y)
+        xm, ym = self.apply_inverse_symplecto(xT, yT)
+        nTx, nTy = self.get_nT(xm, ym)
 
-        dx_J_inv_trans_n_x = torch.autograd.grad(J_inv_trans_n_x.sum(), x, create_graph=True)[0]
-        dy_J_inv_trans_n_y = torch.autograd.grad(J_inv_trans_n_y.sum(), y, create_graph=True)[0]
+        dx_nTx = torch.autograd.grad(nTx.sum(), xT, create_graph=True)[0]
+        dy_nTy = torch.autograd.grad(nTy.sum(), yT, create_graph=True)[0]
 
-        H = dx_J_inv_trans_n_x + dy_J_inv_trans_n_y
+        H = dx_nTx + dy_nTy
+
+        # nx, ny = self.get_n(x, y)
+        # J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        # J_inv_trans_n_x = J_d * nx - J_c * ny
+        # J_inv_trans_n_y = -J_b * nx + J_a * ny
+
+        # dx_J_inv_trans_n_x = torch.autograd.grad(J_inv_trans_n_x.sum(), x, create_graph=True)[0]
+        # dy_J_inv_trans_n_y = torch.autograd.grad(J_inv_trans_n_y.sum(), y, create_graph=True)[0]
+
+        # H = dx_J_inv_trans_n_x + dy_J_inv_trans_n_y
 
         return H
 
@@ -374,10 +386,23 @@ class Geo_Net:
             *self.apply_symplecto(x, y),
             name=self.source_term,
         )
+
         u = self.get_u(x, y)
+
+        kappa = 1
+
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        a, b, c, d = J_d, -J_c, -J_b, J_a
+        u = self.get_u(x, y)
+        dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        Jt_dx_u = a * dx_u + b * dy_u
+        Jt_dy_u = c * dx_u + d * dy_u
+        grad_u_2 = Jt_dx_u**2 + Jt_dy_u**2
+
         H = self.get_mean_curvature(x, y)
 
-        return f + 0.5 * u * H
+        return 0.5 * grad_u_2 + 0.5 * u**2 * (1 + kappa * H - 2*kappa**2) - f * u
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -498,20 +523,23 @@ class Geo_Net:
                 except NameError:
                     pass
 
-            if self.optimality_condition.item() < best_optimality_condition_value:
+            if (
+                self.optimality_condition.item() < best_optimality_condition_value
+                and epoch > 500
+            ):
                 print(
                     f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
                 )
-                best_loss = self.loss.clone()
+                # best_loss = self.loss.clone()
                 best_optimality_condition = self.optimality_condition.clone()
                 best_optimality_condition_value = best_optimality_condition.item()
-                best_up_nets = self.copy_sympnet(self.up_nets)
-                best_up_optimizers = self.copy_sympnet(self.up_optimizers)
-                best_down_nets = self.copy_sympnet(self.down_nets)
-                best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+                # best_up_nets = self.copy_sympnet(self.up_nets)
+                # best_up_optimizers = self.copy_sympnet(self.up_optimizers)
+                # best_down_nets = self.copy_sympnet(self.down_nets)
+                # best_down_optimizers = self.copy_sympnet(self.down_optimizers)
 
-                best_u_net = copy.deepcopy(self.u_net.state_dict())
-                best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+                # best_u_net = copy.deepcopy(self.u_net.state_dict())
+                # best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
 
             if self.loss.item() < best_loss_value:
                 print(
@@ -519,8 +547,8 @@ class Geo_Net:
                 )
                 best_loss_value = self.loss.item()
                 best_loss = self.loss.clone()
-                best_optimality_condition = self.optimality_condition.clone()
-                best_optimality_condition_value = best_optimality_condition.item()
+                # best_optimality_condition = self.optimality_condition.clone()
+                # best_optimality_condition_value = best_optimality_condition.item()
                 best_up_nets = self.copy_sympnet(self.up_nets)
                 best_up_optimizers = self.copy_sympnet(self.up_optimizers)
                 best_down_nets = self.copy_sympnet(self.down_nets)
