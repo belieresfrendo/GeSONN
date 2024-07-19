@@ -9,7 +9,7 @@ def get_f(x, y, mu=1.0, name=None):
         r2 = (x / mu) ** 2 + (mu * y) ** 2
         return torch.exp(1 - r2)
     elif name == "exp":
-        r2 = (0.5 * x) ** 2 + (2 * y) ** 2
+        r2 = (0.8 * x) ** 2 + (1.25 * y) ** 2
         return torch.exp(1 - r2)
     elif name == "sin":
         r2 = (0.5 * x) ** 2 + (2 * y) ** 2

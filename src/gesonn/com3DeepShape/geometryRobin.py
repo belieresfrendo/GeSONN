@@ -295,7 +295,7 @@ class Geo_Net:
         return torch.sqrt(Jac_tan_x**2 + Jac_tan_y**2)
 
     def get_t(self, x, y):
-        return -y, x
+        return y, -x
 
     def get_nT(self, x, y):
         J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
@@ -402,7 +402,7 @@ class Geo_Net:
 
         H = self.get_mean_curvature(x, y)
 
-        return 0.5 * grad_u_2 + 0.5 * u**2 * (1 + kappa * H - 2*kappa**2) - f * u
+        return (0.5 * grad_u_2 + 0.5 * u**2 * (1 + kappa * H - 2*kappa**2) - f * u)
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):

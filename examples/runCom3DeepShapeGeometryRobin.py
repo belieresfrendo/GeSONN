@@ -16,13 +16,13 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    train = False
+    # train = False
 
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
         "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
-        "nb_of_networks": 4,
+        "nb_of_networks": 5,
         "networks_size": 5,
         "rho_max": 1,
         "file_name": "robin_shapo",
@@ -30,6 +30,7 @@ if __name__ == "__main__":
         "source_term": "exp",
         "boundary_condition": "robin",
         "pinn_activation": torch.tanh,
+        "sympnet_activation": torch.tanh,
     }
 
     epochs = 3_000

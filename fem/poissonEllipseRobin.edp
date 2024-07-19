@@ -9,7 +9,7 @@
 
 
 // Parameters
-real a = 1/0.8;
+real a = 1;
 int n = 500;
 real xmin=-a, xmax=a, ymin=-1/a, ymax=1/a;
 
@@ -35,7 +35,7 @@ problem Laplacian (u, uh)
 	);
 
 f = 1;
-// f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
+f = exp(1 - (a*a*x*x + 1/(a*a)*y*y));
 // Solve
 Laplacian;
 
