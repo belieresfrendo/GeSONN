@@ -88,7 +88,7 @@ def get_contours(
 
     # measuring the min and max coordinates of the bounding box
     theta = torch.linspace(
-        0, 2 * np.pi, 10_000, dtype=torch.float64, requires_grad=True
+        0, 2 * np.pi, 10_000, dtype=torch.float64, requires_grad=True, device=device,
     )[:, None]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)

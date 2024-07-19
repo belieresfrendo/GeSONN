@@ -525,7 +525,7 @@ class Geo_Net:
 
             if (
                 self.optimality_condition.item() < best_optimality_condition_value
-                and epoch > 500
+                and epoch > 100
             ):
                 print(
                     f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
@@ -533,13 +533,13 @@ class Geo_Net:
                 # best_loss = self.loss.clone()
                 best_optimality_condition = self.optimality_condition.clone()
                 best_optimality_condition_value = best_optimality_condition.item()
-                # best_up_nets = self.copy_sympnet(self.up_nets)
-                # best_up_optimizers = self.copy_sympnet(self.up_optimizers)
-                # best_down_nets = self.copy_sympnet(self.down_nets)
-                # best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+                best_up_nets = self.copy_sympnet(self.up_nets)
+                best_up_optimizers = self.copy_sympnet(self.up_optimizers)
+                best_down_nets = self.copy_sympnet(self.down_nets)
+                best_down_optimizers = self.copy_sympnet(self.down_optimizers)
 
-                # best_u_net = copy.deepcopy(self.u_net.state_dict())
-                # best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+                best_u_net = copy.deepcopy(self.u_net.state_dict())
+                best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
 
             if self.loss.item() < best_loss_value:
                 print(
@@ -549,13 +549,13 @@ class Geo_Net:
                 best_loss = self.loss.clone()
                 # best_optimality_condition = self.optimality_condition.clone()
                 # best_optimality_condition_value = best_optimality_condition.item()
-                best_up_nets = self.copy_sympnet(self.up_nets)
-                best_up_optimizers = self.copy_sympnet(self.up_optimizers)
-                best_down_nets = self.copy_sympnet(self.down_nets)
-                best_down_optimizers = self.copy_sympnet(self.down_optimizers)
+                # best_up_nets = self.copy_sympnet(self.up_nets)
+                # best_up_optimizers = self.copy_sympnet(self.up_optimizers)
+                # best_down_nets = self.copy_sympnet(self.down_nets)
+                # best_down_optimizers = self.copy_sympnet(self.down_optimizers)
 
-                best_u_net = copy.deepcopy(self.u_net.state_dict())
-                best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
+                # best_u_net = copy.deepcopy(self.u_net.state_dict())
+                # best_u_optimizer = copy.deepcopy(self.u_optimizer.state_dict())
 
         tps2 = time.time()
 
