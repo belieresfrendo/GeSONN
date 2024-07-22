@@ -11,7 +11,7 @@ print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryPara
 
 if __name__ == "__main__":
     train = True
-    train = False
+    # train = False
 
     # ==============================================================
     # Parameters to be modified freely by the user
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 1_000
+    epochs = 2
     n_collocation = 10_000
     new_training = False
     # new_training = True

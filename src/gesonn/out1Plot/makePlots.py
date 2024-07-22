@@ -309,7 +309,7 @@ def edp_contour_param_source(
 
     for mu in mu_list:
         # measuring the min and max coordinates of the bounding box
-        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
         x = rho_max * torch.cos(theta)
         y = rho_max * torch.sin(theta)
         x, y = apply_symplecto(x, y, mu * torch.ones_like(x))
@@ -322,9 +322,9 @@ def edp_contour_param_source(
         y_max += 0.025 * max(lx, ly)
         y_min -= 0.025 * max(lx, ly)
         # make meshgrid
-        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64)
+        x = torch.linspace(x_min, x_max, n_visu, dtype=torch.float64, device=device)
         x_ = torch.tile(x, (n_visu,))[:, None]
-        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64)
+        y = torch.linspace(y_min, y_max, n_visu, dtype=torch.float64, device=device)
         y_ = torch.repeat_interleave(y, n_visu)[:, None]
         ones_ = torch.ones_like(x_)
         mu_visu_ = mu * ones_
@@ -520,7 +520,7 @@ def shape_error(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64)[:, None]
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     xT_pred, yT_pred = apply_symplecto(x, y)

@@ -414,20 +414,6 @@ class Geo_Net:
             theta_border_collocation
         )
 
-    def get_mes_border(self):
-        n = 10_000
-        theta = torch.linspace(self.theta_min, self.theta_max, n, requires_grad=True)[
-            :, None
-        ]
-        x = self.rho_max * torch.cos(theta)
-        y = self.rho_max * torch.sin(theta)
-        x, y = self.apply_symplecto(x, y)
-        rho = torch.sqrt(x * x + y * y)
-        lenghts = torch.sqrt(
-            rho[:-1] ** 2 + rho[1:] ** 2 - 2 * (x[:-1] * x[1:] + y[:-1] * y[1:])
-        )
-
-        return lenghts.sum()
 
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):

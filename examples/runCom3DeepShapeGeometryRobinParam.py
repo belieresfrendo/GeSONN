@@ -4,10 +4,10 @@ import os
 import torch
 
 # local imports
-from gesonn.com3DeepShape import geometryRobin
+from gesonn.com3DeepShape import geometryRobinParam
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryRobin.py")
+print(f"torch loaded; device is {device}; script is runCom3DeepShapeGeometryRobinParam.py")
 
 if __name__ == "__main__":
 
@@ -16,16 +16,18 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    train = False
+    # train = False
 
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "layer_sizes": [3, 10, 20, 40, 40, 20, 10, 1],
         "nb_of_networks": 4,
         "networks_size": 5,
         "rho_max": 1,
-        "file_name": "JSC_robin_one",
+        "kappa_min": 0.5,
+        "kappa_max": 1.5,
+        "file_name": "robin_param",
         "to_be_trained": True,
         "source_term": "one",
         "boundary_condition": "robin",
@@ -33,10 +35,10 @@ if __name__ == "__main__":
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 25_000
-    n_collocation = 100_000
+    epochs = 200
+    n_collocation = 1000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
@@ -53,7 +55,7 @@ if __name__ == "__main__":
             except FileNotFoundError:
                 pass
 
-        network = geometryRobin.Geo_Net(deepGeoDict=deepGeoDict)
+        network = geometryRobinParam.Geo_Net(deepGeoDict=deepGeoDict)
 
         if device.type == "cpu":
             tps = network.train(
@@ -72,5 +74,5 @@ if __name__ == "__main__":
         print(f"Computational time: {str(tps)[:4]} sec.")
 
     else:
-        network = geometryRobin.Geo_Net(deepGeoDict=deepGeoDict)
+        network = geometryRobinParam.Geo_Net(deepGeoDict=deepGeoDict)
         network.plot_result(save_plots)
