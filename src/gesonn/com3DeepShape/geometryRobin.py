@@ -345,7 +345,7 @@ class Geo_Net:
         gamma_0_u = self.get_u(x_border, y_border)
         Jac_tan = self.get_tangential_jacobian(x_border, y_border)
 
-        return A_grad_u_grad_u + u**2, Jac_tan * gamma_0_u**2
+        return A_grad_u_grad_u, Jac_tan * gamma_0_u**2
 
     def right_hand_term(self, x, y):
         u = self.get_u(x, y)
@@ -402,6 +402,7 @@ class Geo_Net:
 
         H = self.get_mean_curvature(x, y)
 
+        return 0.5 * grad_u_2 + 0.5 * u**2 * (kappa*H - 2*kappa) - f*u
         return (0.5 * grad_u_2 + 0.5 * u**2 * (1 + kappa * H - 2*kappa**2) - f * u)
 
     @staticmethod
@@ -525,7 +526,7 @@ class Geo_Net:
 
             if (
                 self.optimality_condition.item() < best_optimality_condition_value
-                and epoch > 100
+                and epoch > 199
             ):
                 print(
                     f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"

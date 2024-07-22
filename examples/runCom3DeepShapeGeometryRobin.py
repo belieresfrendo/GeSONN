@@ -21,8 +21,8 @@ if __name__ == "__main__":
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
         "sympnet_learning_rate": 1e-2,
-        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
-        "nb_of_networks": 5,
+        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "nb_of_networks": 4,
         "networks_size": 5,
         "rho_max": 1,
         "file_name": "robin_shapo",
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     epochs = 3_000
     n_collocation = 10_000
     new_training = False
-    # new_training = True
+    new_training = True
     save_plots = False
     save_plots = True
 
