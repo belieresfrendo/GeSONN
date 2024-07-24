@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # ==============================================================
 
     train = True
-    # train = False
+    train = False
 
     deepGeoDict = {
         "pde_learning_rate": 1e-2,
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "rho_max": 1,
         "kappa_min": 0.5,
         "kappa_max": 1.5,
-        "file_name": "robin_param",
+        "file_name": "JSC_robin_one_param",
         "to_be_trained": True,
         "source_term": "one",
         "boundary_condition": "robin",
@@ -35,10 +35,10 @@ if __name__ == "__main__":
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 200
-    n_collocation = 1000
+    epochs = 25_000
+    n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
     save_plots = True
 

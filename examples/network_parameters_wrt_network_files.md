@@ -146,3 +146,43 @@ bernoulli_SIAM_a_065_backup.pth
 
     epochs = 29_000
     n_collocation = 5_000
+
+JCP_robin_one.pth
+
+    deepGeoDict = {
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
+        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 5,
+        "rho_max": 1,
+        "file_name": "JSC_robin_one",
+        "to_be_trained": True,
+        "source_term": "one",
+        "boundary_condition": "robin",
+        "pinn_activation": torch.tanh,
+        "sympnet_activation": torch.tanh,
+    }
+
+    epochs = 25_000
+    n_collocation = 100_000
+
+JCP_robin_exp_08
+
+    deepGeoDict = {
+        "pde_learning_rate": 1e-2,
+        "sympnet_learning_rate": 1e-2,
+        "layer_sizes": [2, 10, 20, 40, 40, 20, 10, 1],
+        "nb_of_networks": 4,
+        "networks_size": 5,
+        "rho_max": 1,
+        "file_name": "JSC_robin_one",
+        "to_be_trained": True,
+        "source_term": "one",
+        "boundary_condition": "robin",
+        "pinn_activation": torch.tanh,
+        "sympnet_activation": torch.tanh,
+    }
+
+    epochs = 25_000
+    n_collocation = 100_000

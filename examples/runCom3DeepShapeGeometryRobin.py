@@ -25,16 +25,16 @@ if __name__ == "__main__":
         "nb_of_networks": 4,
         "networks_size": 5,
         "rho_max": 1,
-        "file_name": "JSC_robin_one",
+        "file_name": "JSC_robin_exp_08",
         "to_be_trained": True,
-        "source_term": "one",
+        "source_term": "exp",
         "boundary_condition": "robin",
         "pinn_activation": torch.tanh,
         "sympnet_activation": torch.tanh,
     }
 
     epochs = 25_000
-    n_collocation = 100_000
+    n_collocation = 10_000
     new_training = False
     # new_training = True
     save_plots = False

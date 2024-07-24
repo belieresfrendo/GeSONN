@@ -267,7 +267,7 @@ class Geo_Net:
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        J_a, J_b, J_c, J_d = self.J_a_Omega, self.J_b_Omega, self.J_c_Omega, self.J_d_Omega
         A_a = J_d**2 + J_b**2
         A_b = -(J_c * J_d + J_a * J_b)
         A_c = A_b
@@ -286,7 +286,7 @@ class Geo_Net:
         return J_a, J_b, J_c, J_d
 
     def get_tangential_jacobian(self, x, y):
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        J_a, J_b, J_c, J_d = self.J_a_Gamma, self.J_b_Gamma, self.J_c_Gamma, self.J_d_Gamma
         nx, ny = self.get_n(x, y)
 
         Jac_tan_x = J_d * nx - J_c * ny
@@ -298,7 +298,7 @@ class Geo_Net:
         return y, -x
 
     def get_nT(self, x, y):
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x,y)
         tx, ty = self.get_t(x, y)
 
         tTx = J_a * tx + J_b * ty
@@ -324,7 +324,7 @@ class Geo_Net:
         return H
 
     def left_hand_term(self, x, y, x_border, y_border):
-        u = self.get_u(x, y)
+        u = self.u_Omega
         a, b, c, d = self.get_metric_tensor(x, y)
 
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
@@ -332,13 +332,13 @@ class Geo_Net:
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
-        gamma_0_u = self.get_u(x_border, y_border)
+        gamma_0_u = self.u_Gamma
         Jac_tan = self.get_tangential_jacobian(x_border, y_border)
 
         return A_grad_u_grad_u, Jac_tan * gamma_0_u**2
 
     def right_hand_term(self, x, y):
-        u = self.get_u(x, y)
+        u = self.u_Omega
 
         # terme source
         f = sourceTerms.get_f(
@@ -447,6 +447,21 @@ class Geo_Net:
         self.x_border_collocation = self.rho_max * torch.cos(self.theta_collocation)
         self.y_border_collocation = self.rho_max * torch.sin(self.theta_collocation)
 
+    def make_Omega_calls(self, x, y):
+        self.u_Omega = self.get_u(x, y)
+        self.J_a_Omega, self.J_b_Omega, self.J_c_Omega, self.J_d_Omega = (
+            self.get_jacobian_T(x, y)
+        )
+        self.A_a_Omega, self.A_b_Omega, self.A_c_Omega, self.A_d_Omega = (
+            self.get_metric_tensor(x, y)
+        )
+
+    def make_Gamma_calls(self, x, y):
+        self.u_Gamma = self.get_u(x, y)
+        self.J_a_Gamma, self.J_b_Gamma, self.J_c_Gamma, self.J_d_Gamma = (
+            self.get_jacobian_T(x, y)
+        )
+
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):
             try:
@@ -486,7 +501,13 @@ class Geo_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
-
+                self.make_Omega_calls(
+                    self.x_collocation, self.y_collocation
+                )
+                self.make_Gamma_calls(
+                    self.x_border_collocation,
+                    self.y_border_collocation,
+                )
                 auu_Omega, auu_Gamma = self.left_hand_term(
                     self.x_collocation,
                     self.y_collocation,
@@ -568,7 +589,6 @@ class Geo_Net:
 
         tps2 = time.time()
 
-        print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}")
 
         try:
             self.save(
@@ -590,6 +610,8 @@ class Geo_Net:
             pass
 
         self.load(self.file_name)
+        
+        print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}")
 
         if plot_history:
             self.plot_result(save_plots)
@@ -644,13 +666,6 @@ class Geo_Net:
             save_plots,
             f"{self.fig_storage}_optimality",
         )
-
-        n_visu = 50_000
-        self.make_collocation(n_visu)
-        optimaity_condition = self.get_optimality_condition(
-            self.x_border_collocation, self.y_border_collocation
-        )
-
 
         if self.source_term == "one":
             n_pts = 10_000

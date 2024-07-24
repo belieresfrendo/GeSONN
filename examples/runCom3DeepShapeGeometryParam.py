@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 2.0,
-        "file_name": "SIAM_bizaroid_backup",
+        "file_name": "test",
         "to_be_trained": True,
         "source_term": "bizaroid",
         "boundary_condition": "homogeneous_dirichlet",

@@ -280,7 +280,12 @@ class Geo_Net:
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y, kappa)
+        J_a, J_b, J_c, J_d = (
+            self.J_a_Omega,
+            self.J_b_Omega,
+            self.J_c_Omega,
+            self.J_d_Omega,
+        )
         A_a = J_d**2 + J_b**2
         A_b = -(J_c * J_d + J_a * J_b)
         A_c = A_b
@@ -299,7 +304,12 @@ class Geo_Net:
         return J_a, J_b, J_c, J_d
 
     def get_tangential_jacobian(self, x, y, kappa):
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y, kappa)
+        J_a, J_b, J_c, J_d = (
+            self.J_a_Gamma,
+            self.J_b_Gamma,
+            self.J_c_Gamma,
+            self.J_d_Gamma,
+        )
         nx, ny = self.get_n(x, y)
 
         Jac_tan_x = J_d * nx - J_c * ny
@@ -337,21 +347,21 @@ class Geo_Net:
         return H
 
     def left_hand_term(self, x, y, x_border, y_border, kappa):
-        u = self.get_u(x, y, kappa)
-        a, b, c, d = self.get_metric_tensor(x, y, kappa)
+        u = self.u_Omega
+        a, b, c, d = self.A_a_Omega, self.A_b_Omega, self.A_c_Omega, self.A_d_Omega
 
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
         dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
 
         A_grad_u_grad_u = (a * dx_u + b * dy_u) * dx_u + (c * dx_u + d * dy_u) * dy_u
 
-        gamma_0_u = self.get_u(x_border, y_border, kappa)
+        gamma_0_u = self.u_Gamma
         Jac_tan = self.get_tangential_jacobian(x_border, y_border, kappa)
 
-        return A_grad_u_grad_u, Jac_tan * gamma_0_u**2
+        return A_grad_u_grad_u, kappa * Jac_tan * gamma_0_u**2
 
     def right_hand_term(self, x, y, kappa):
-        u = self.get_u(x, y, kappa)
+        u = self.u_Omega
 
         # terme source
         f = sourceTerms.get_f(
@@ -383,13 +393,17 @@ class Geo_Net:
             x = x - self.up_nets[self.nb_of_networks - 1 - i](y, kappa)
         return x, y
 
-    def get_optimality_condition_visu(self, n=10_000):
+    def get_optimality_condition_visu(self, kappa, n=10_000):
+        """
+        Be careful : kappa is a scalar
+        """
         theta = torch.linspace(
             0, 2 * torch.pi, n, requires_grad=True, dtype=torch.float64, device=device
         )[:, None]
         x = self.rho_max * torch.cos(theta)
         y = self.rho_max * torch.sin(theta)
-        xT, yT = self.apply_symplecto(x, y)
+        kappa = kappa * torch.ones_like(x)
+        xT, yT = self.apply_symplecto(x, y, kappa)
 
         f = sourceTerms.get_f(
             xT,
@@ -397,20 +411,18 @@ class Geo_Net:
             name=self.source_term,
         )
 
-        u = self.get_u(x, y)
+        u = self.get_u(x, y, kappa)
 
-        kappa = 1
-
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y, kappa)
         a, b, c, d = J_d, -J_c, -J_b, J_a
-        u = self.get_u(x, y)
+        u = self.get_u(x, y, kappa)
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
         dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
         Jt_dx_u = a * dx_u + b * dy_u
         Jt_dy_u = c * dx_u + d * dy_u
         grad_u_2 = Jt_dx_u**2 + Jt_dy_u**2
 
-        H = self.get_mean_curvature(x, y)
+        H = self.get_mean_curvature(x, y, kappa)
         condition = 0.5 * grad_u_2 + 0.5 * u**2 * (kappa * H - 2 * kappa) - f * u
 
         return condition - condition.mean(), xT, yT
@@ -423,11 +435,8 @@ class Geo_Net:
 
         u = self.get_u(x, y, kappa)
 
-        kappa = 1
-
         J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y, kappa)
         a, b, c, d = J_d, -J_c, -J_b, J_a
-        u = self.get_u(x, y, kappa)
         dx_u = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
         dy_u = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
         Jt_dx_u = a * dx_u + b * dy_u
@@ -464,6 +473,21 @@ class Geo_Net:
             self.kappa_min, self.kappa_max, shape, requires_grad=True
         )
 
+    def make_Omega_calls(self, x, y, kappa):
+        self.u_Omega = self.get_u(x, y, kappa)
+        self.J_a_Omega, self.J_b_Omega, self.J_c_Omega, self.J_d_Omega = (
+            self.get_jacobian_T(x, y, kappa)
+        )
+        self.A_a_Omega, self.A_b_Omega, self.A_c_Omega, self.A_d_Omega = (
+            self.get_metric_tensor(x, y, kappa)
+        )
+
+    def make_Gamma_calls(self, x, y, kappa):
+        self.u_Gamma = self.get_u(x, y, kappa)
+        self.J_a_Gamma, self.J_b_Gamma, self.J_c_Gamma, self.J_d_Gamma = (
+            self.get_jacobian_T(x, y, kappa)
+        )
+
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):
             try:
@@ -479,7 +503,9 @@ class Geo_Net:
 
         plot_history = kwargs.get("plot_history", False)
         save_plots = kwargs.get("save_plots", False)
-        n_kappa_for_optimality_condition = kwargs.get("n_kappa_for_optimality_condition", 10)
+        n_kappa_for_optimality_condition = kwargs.get(
+            "n_kappa_for_optimality_condition", 10
+        )
 
         # trucs de sauvegarde ?
         try:
@@ -504,6 +530,14 @@ class Geo_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
+                self.make_Omega_calls(
+                    self.x_collocation, self.y_collocation, self.kappa_collocation
+                )
+                self.make_Gamma_calls(
+                    self.x_border_collocation,
+                    self.y_border_collocation,
+                    self.kappa_collocation,
+                )
 
                 auu_Omega, auu_Gamma = self.left_hand_term(
                     self.x_collocation,
@@ -513,9 +547,7 @@ class Geo_Net:
                     self.kappa_collocation,
                 )
                 lu = self.right_hand_term(
-                    self.x_collocation,
-                    self.y_collocation,
-                    self.kappa_collocation
+                    self.x_collocation, self.y_collocation, self.kappa_collocation
                 )
 
                 loss_Omega = 0.5 * auu_Omega - lu
@@ -525,9 +557,11 @@ class Geo_Net:
                     + loss_Gamma.sum() * self.Vol_Gamma / n_collocation
                 ) * self.Vol_Param
 
-                self.optimality_condition = 0
+                self.optimality_condition = torch.tensor([0.0], device=device)
                 random_kappas = self.random(
-                    self.kappa_min, self.kappa_max, n_kappa_for_optimality_condition
+                    self.kappa_min,
+                    self.kappa_max,
+                    n_kappa_for_optimality_condition,
                 )
                 for kappa in random_kappas:
                     self.optimality_condition += (
@@ -573,7 +607,7 @@ class Geo_Net:
 
             if (
                 self.optimality_condition.item() < best_optimality_condition_value
-                and epoch > 50
+                and epoch > 999
             ):
                 print(
                     f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, best optimality condition = {self.optimality_condition.item():5.2e}"
@@ -658,9 +692,15 @@ class Geo_Net:
     def plot_result(self, save_plots, n_kappas=2, n_kappas_for_optimality_condition=10):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
-        kappa_list_solution = list(self.random(self.kappa_min, self.kappa_max, n_kappas))
+        kappa_list_solution = list(
+            self.random(self.kappa_min, self.kappa_max, n_kappas)
+        )
+        print(kappa_list_solution)
+
         kappa_list_optimality = list(
-            self.random(self.kappa_min, self.kappa_max, n_kappas_for_optimality_condition)
+            self.random(
+                self.kappa_min, self.kappa_max, n_kappas_for_optimality_condition
+            )
         )
 
         makePlots.edp_contour_param_source(
@@ -673,16 +713,16 @@ class Geo_Net:
             lambda x, y, kappa: self.apply_inverse_symplecto(x, y, kappa),
             save_plots,
             f"{self.fig_storage}_solution",
-            kappa_list=kappa_list_solution,
+            mu_list=kappa_list_solution,
         )
 
         makePlots.optimality_condition_param(
             self.kappa_min,
             self.kappa_max,
-            self.get_optimality_condition,
+            self.get_optimality_condition_visu,
             save_plots,
             f"{self.fig_storage}_optimality",
-            kappa_list=kappa_list_optimality,
+            mu_list=kappa_list_optimality,
         )
 
         if self.source_term == "one":
@@ -703,5 +743,151 @@ class Geo_Net:
                 lambda x, y, kappa: self.apply_inverse_symplecto(x, y, kappa),
                 save_plots,
                 f"{self.fig_storage}_solution_error",
-                kappa_list=kappa_list_solution,
+                mu_list=kappa_list_solution,
             )
+
+    def get_hausdorff_distances_to_disk(self, kappas, n_pts=10_000):
+        import numpy as np
+        import scipy.spatial.distance as dist
+
+        self.make_collocation(n_pts)
+
+        hausdorff_distances = torch.zeros_like(kappas)
+
+        for i_kappa, kappa in enumerate(kappas):
+            if i_kappa % 100 == 0:
+                print(f"Hausdorff: {i_kappa}/{len(kappas)} done")
+
+            theta = torch.linspace(
+                0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64
+            )[:, None]
+            x = self.rho_max * torch.cos(theta)
+            y = self.rho_max * torch.sin(theta)
+            xT, yT = self.apply_symplecto(x, y, kappa.item() * torch.ones_like(x))
+
+            x0 = xT.sum() / n_pts
+            y0 = yT.sum() / n_pts
+
+            x_ex, y_ex = self.x_collocation + x0, self.y_collocation + y0
+            x_net, y_net = self.apply_symplecto(
+                self.x_collocation,
+                self.y_collocation,
+                kappa.item() * torch.ones_like(self.x_collocation),
+            )
+
+            X_net = []
+            X_ex = []
+            for x, y in zip(x_net.flatten().tolist(), y_net.flatten().tolist()):
+                X_net.append((x, y))
+            for x, y in zip(x_ex.flatten().tolist(), y_ex.flatten().tolist()):
+                X_ex.append((x, y))
+
+            X_net = np.array(X_net)
+            X_ex = np.array(X_ex)
+
+            hausdorff_distances[i_kappa] = max(
+                dist.directed_hausdorff(X_net, X_ex)[0],
+                dist.directed_hausdorff(X_ex, X_net)[0],
+            )
+
+        print(f"Hausdorff: {len(kappas)}/{len(kappas)} done")
+
+        return hausdorff_distances
+
+    def get_L2_error_on_disk(self, kappas, n_pts=10_000):
+        def exact_solution(x, y, kappa):
+            return 0.75 * kappa - 0.25 * (x**2 + y**2)
+
+        def error(x, y, kappa):
+            return torch.abs(exact_solution(x, y, kappa) - self.get_u(x, y, kappa))
+
+        L2_errors = torch.zeros_like(kappas)
+
+        for i_kappa, kappa in enumerate(kappas):
+            if i_kappa % 100 == 0:
+                print(f"L2: {i_kappa}/{len(kappas)} done")
+
+            self.make_collocation(n_pts)
+            MSE = (
+                error(
+                    self.x_collocation,
+                    self.y_collocation,
+                    kappa.item() * torch.ones_like(self.x_collocation),
+                )[:, 0]
+                .detach()
+                .cpu()
+                ** 2
+            )
+            L2_errors[i_kappa] = torch.sqrt(MSE.sum() / n_pts)
+
+        print(f"L2: {len(kappas)}/{len(kappas)} done")
+
+        return L2_errors
+
+    def stats_on_optimality_condition(self, kappas, n_pts=10_000):
+        optimality_conditions = torch.zeros_like(kappas)
+
+        for i_kappa, kappa in enumerate(kappas):
+            if i_kappa % 100 == 0:
+                print(f"optimality: {i_kappa}/{len(kappas)} done")
+
+            self.make_collocation(n_pts)
+
+            optim_cond = self.get_optimality_condition(
+                self.x_border_collocation,
+                self.y_border_collocation,
+                kappa.item() * torch.ones_like(self.x_border_collocation),
+            )[:, 0]
+
+            optimality_conditions[i_kappa] = optim_cond.var().detach().cpu()
+
+            self.x_border_collocation = None
+            self.y_border_collocation = None
+
+        print(f"optimality: {len(kappas)}/{len(kappas)} done")
+
+        return optimality_conditions
+
+    def compute_stats_constant_source(self, n_pts=50_000, n_kappa=1_000):
+        # compute a set of random kappas
+        random_kappas = self.random(self.kappa_min, self.kappa_max, n_kappa)
+
+        # compute Hausdorff distances between the solution and the disk for each kappa
+        hausdorff_distances = self.get_hausdorff_distances_to_disk(random_kappas, n_pts)
+
+        # compute L2 error for each kappa
+        L2_errors = self.get_L2_error_on_disk(random_kappas, n_pts)
+
+        # compute optimality_conditions for each kappa
+        optimality_conditions = self.stats_on_optimality_condition(random_kappas, n_pts)
+
+        print(f"\nMean Haussdorf distance: {hausdorff_distances.mean():3.2e}")
+        print(f"Max Haussdorf distance: {hausdorff_distances.max():3.2e}")
+        print(f"Min Haussdorf distance: {hausdorff_distances.min():3.2e}")
+        print(f"Variance Haussdorf distance: {hausdorff_distances.var():3.2e}")
+
+        print(f"\nMean L2 error: {L2_errors.mean():3.2e}")
+        print(f"Max L2 error: {L2_errors.max():3.2e}")
+        print(f"Min L2 error: {L2_errors.min():3.2e}")
+        print(f"Variance L2 error: {L2_errors.var():3.2e}")
+
+        print(f"\nMean optimality: {optimality_conditions.mean():3.2e}")
+        print(f"Max optimality: {optimality_conditions.max():3.2e}")
+        print(f"Min optimality: {optimality_conditions.min():3.2e}")
+        print(f"Variance optimality: {optimality_conditions.var():3.2e}")
+
+        return random_kappas, hausdorff_distances, L2_errors, optimality_conditions
+
+    def compute_stats(self, n_pts=50_000, n_random=1_000):
+        assert isinstance(n_pts, int) and n_pts > 0
+        assert isinstance(n_random, int) and n_random > 0
+
+        random_kappas = self.random(self.kappa_min, self.kappa_max, n_random)
+        optimality_conditions = self.stats_on_optimality_condition(random_kappas, n_pts)
+
+        print(f"\nMean optimality: {optimality_conditions.mean():3.2e}")
+        print(f"Max optimality: {optimality_conditions.max():3.2e}")
+        print(f"Min optimality: {optimality_conditions.min():3.2e}")
+        print(f"Variance optimality: {optimality_conditions.var():3.2e}")
+
+        return optimality_conditions
