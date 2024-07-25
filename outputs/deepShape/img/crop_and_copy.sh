@@ -36,10 +36,17 @@
 
 # cp param_SIAM_bizaroid_*_cropped.pdf ../../../../papier_sympnet/img/com3/f_bizaroid_param/
 
-pdfcrop.sh bernoulli_SIAM_a_05_backup_solution.pdf bernoulli_SIAM_a_05_backup_solution_cropped.pdf
-pdfcrop.sh bernoulli_SIAM_a_05_backup_optimality.pdf bernoulli_SIAM_a_05_backup_optimality_cropped.pdf
-pdfcrop.sh bernoulli_SIAM_a_065_backup_solution.pdf bernoulli_SIAM_a_065_backup_solution_cropped.pdf
-pdfcrop.sh bernoulli_SIAM_a_065_backup_optimality.pdf bernoulli_SIAM_a_065_backup_optimality_cropped.pdf
+# pdfcrop.sh bernoulli_SIAM_a_05_backup_solution.pdf bernoulli_SIAM_a_05_backup_solution_cropped.pdf
+# pdfcrop.sh bernoulli_SIAM_a_05_backup_optimality.pdf bernoulli_SIAM_a_05_backup_optimality_cropped.pdf
+# pdfcrop.sh bernoulli_SIAM_a_065_backup_solution.pdf bernoulli_SIAM_a_065_backup_solution_cropped.pdf
+# pdfcrop.sh bernoulli_SIAM_a_065_backup_optimality.pdf bernoulli_SIAM_a_065_backup_optimality_cropped.pdf
 
-cp bernoulli_SIAM_a_05_backup_*_cropped.pdf ../../../../papier_sympnet/img/com3/bernoulli/
-cp bernoulli_SIAM_a_065_backup_*_cropped.pdf ../../../../papier_sympnet/img/com3/bernoulli/
+# cp bernoulli_SIAM_a_05_backup_*_cropped.pdf ../../../../papier_sympnet/img/com3/bernoulli/
+# cp bernoulli_SIAM_a_065_backup_*_cropped.pdf ../../../../papier_sympnet/img/com3/bernoulli/
+
+pdfcrop.sh JSC_robin_exp_solution.pdf JSC_robin_exp_solution_cropped.pdf
+pdfcrop.sh JSC_robin_exp_optimality.pdf JSC_robin_exp_optimality_cropped.pdf
+pdfcrop.sh JSC_robin_one_solution.pdf JSC_robin_one_solution_cropped.pdf
+pdfcrop.sh JSC_robin_one_solution_error.pdf JSC_robin_one_solution_error_cropped.pdf
+pdfcrop.sh JSC_robin_one_shape_error_error.pdf JSC_robin_one_shape_error_error_cropped.pdf
+pdfcrop.sh JSC_robin_one_optimality.pdf JSC_robin_one_optimality_cropped.pdf

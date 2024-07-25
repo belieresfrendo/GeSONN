@@ -35,7 +35,7 @@ if __name__ == "__main__":
         "sympnet_activation": torch.tanh,
     }
 
-    epochs = 25_000
+    epochs = 15_000
     n_collocation = 10_000
     new_training = False
     # new_training = True

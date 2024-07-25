@@ -386,9 +386,9 @@ class PINNs:
                 best_loss,
                 self.loss_history,
             )
-            self.load(self.file_name)
         except UnboundLocalError:
             pass
+        self.load(self.file_name)
 
         if plot_history:
             self.plot_result(save_plots)

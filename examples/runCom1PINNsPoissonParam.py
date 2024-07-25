@@ -21,19 +21,19 @@ if __name__ == "__main__":
     PINNsDict = {
         "learning_rate": 1e-2,
         "layer_sizes": [3, 10, 20, 40, 40, 20, 10, 1],
-        "rho_min": 0,
+        "rho_min": 0.2,
         "rho_max": 1,
         "mu_min": 0.5,
         "mu_max": 1.5,
-        "file_name": "param_SIAM",
+        "file_name": "test",
         "symplecto_name": "bizaroid",
         "to_be_trained": train,
         "source_term": "ellipse",
         "boundary_condition": "homogeneous_dirichlet",
     }
 
-    epochs = 1_000
-    n_collocation = 10_000
+    epochs = 25_000
+    n_collocation = 25_000
     new_training = False
     new_training = True
     save_plots = False

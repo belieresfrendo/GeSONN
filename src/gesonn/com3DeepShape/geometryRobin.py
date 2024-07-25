@@ -267,7 +267,12 @@ class Geo_Net:
         # il faut calculer :
         # A = J_T^{-t}*J_T^{-1}
 
-        J_a, J_b, J_c, J_d = self.J_a_Omega, self.J_b_Omega, self.J_c_Omega, self.J_d_Omega
+        J_a, J_b, J_c, J_d = (
+            self.J_a_Omega,
+            self.J_b_Omega,
+            self.J_c_Omega,
+            self.J_d_Omega,
+        )
         A_a = J_d**2 + J_b**2
         A_b = -(J_c * J_d + J_a * J_b)
         A_c = A_b
@@ -286,7 +291,12 @@ class Geo_Net:
         return J_a, J_b, J_c, J_d
 
     def get_tangential_jacobian(self, x, y):
-        J_a, J_b, J_c, J_d = self.J_a_Gamma, self.J_b_Gamma, self.J_c_Gamma, self.J_d_Gamma
+        J_a, J_b, J_c, J_d = (
+            self.J_a_Gamma,
+            self.J_b_Gamma,
+            self.J_c_Gamma,
+            self.J_d_Gamma,
+        )
         nx, ny = self.get_n(x, y)
 
         Jac_tan_x = J_d * nx - J_c * ny
@@ -298,7 +308,7 @@ class Geo_Net:
         return y, -x
 
     def get_nT(self, x, y):
-        J_a, J_b, J_c, J_d = self.get_jacobian_T(x,y)
+        J_a, J_b, J_c, J_d = self.get_jacobian_T(x, y)
         tx, ty = self.get_t(x, y)
 
         tTx = J_a * tx + J_b * ty
@@ -380,7 +390,8 @@ class Geo_Net:
         xT, yT = self.apply_symplecto(x, y)
 
         f = sourceTerms.get_f(
-            xT, yT,
+            xT,
+            yT,
             name=self.source_term,
         )
 
@@ -398,7 +409,7 @@ class Geo_Net:
         grad_u_2 = Jt_dx_u**2 + Jt_dy_u**2
 
         H = self.get_mean_curvature(x, y)
-        condition =  0.5 * grad_u_2 + 0.5 * u**2 * (kappa*H - 2*kappa) - f*u
+        condition = 0.5 * grad_u_2 + 0.5 * u**2 * (kappa * H - 2 * kappa) - f * u
 
         return condition - condition.mean(), xT, yT
 
@@ -422,7 +433,7 @@ class Geo_Net:
         grad_u_2 = Jt_dx_u**2 + Jt_dy_u**2
 
         H = self.get_mean_curvature(x, y)
-        return 0.5 * grad_u_2 + 0.5 * u**2 * (kappa*H - 2*kappa) - f*u
+        return 0.5 * grad_u_2 + 0.5 * u**2 * (kappa * H - 2 * kappa) - f * u
 
     @staticmethod
     def random(min_value, max_value, shape, requires_grad=False, device=device):
@@ -501,9 +512,7 @@ class Geo_Net:
             # Loss based on PDE
             if n_collocation > 0:
                 self.make_collocation(n_collocation)
-                self.make_Omega_calls(
-                    self.x_collocation, self.y_collocation
-                )
+                self.make_Omega_calls(self.x_collocation, self.y_collocation)
                 self.make_Gamma_calls(
                     self.x_border_collocation,
                     self.y_border_collocation,
@@ -589,7 +598,6 @@ class Geo_Net:
 
         tps2 = time.time()
 
-
         try:
             self.save(
                 self.file_name,
@@ -610,8 +618,10 @@ class Geo_Net:
             pass
 
         self.load(self.file_name)
-        
-        print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}")
+
+        print(
+            f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}"
+        )
 
         if plot_history:
             self.plot_result(save_plots)
@@ -670,7 +680,12 @@ class Geo_Net:
         if self.source_term == "one":
             n_pts = 10_000
             theta = torch.linspace(
-                0, 2 * torch.pi, n_pts, requires_grad=True, dtype=torch.float64, device=device
+                0,
+                2 * torch.pi,
+                n_pts,
+                requires_grad=True,
+                dtype=torch.float64,
+                device=device,
             )[:, None]
             x = self.rho_max * torch.cos(theta)
             y = self.rho_max * torch.sin(theta)
@@ -679,16 +694,17 @@ class Geo_Net:
             x0 = xT.sum() / n_pts
             y0 = yT.sum() / n_pts
 
-            def exact_solution(x, y):
-                return 0.25 * (3 - x**2 - y**2)
+            def exact_solution(x, y, x0, y0):
+                x, y = self.apply_symplecto(x,y)
+                return 0.25 * (3 - (x - x0) ** 2 - (y - y0) ** 2)
 
-            def error(x, y):
-                return torch.abs(exact_solution(x, y) - self.get_u(x, y))
+            def error(x, y, x0, y0):
+                return torch.abs(exact_solution(x, y, x0, y0) - self.get_u(x, y))
 
             makePlots.edp_contour(
                 self.rho_min,
                 self.rho_max,
-                error,
+                lambda x, y: error(x, y, x0, y0),
                 lambda x, y: self.apply_symplecto(x, y),
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
@@ -696,7 +712,15 @@ class Geo_Net:
             )
 
             self.make_collocation(n_pts)
-            MSE = error(self.x_collocation, self.y_collocation) ** 2
+            MSE = (
+                error(
+                    self.x_collocation,
+                    self.y_collocation,
+                    x0 * torch.ones_like(self.x_collocation),
+                    y0 * torch.ones_like(self.y_collocation),
+                )
+                ** 2
+            )
             L2_error = torch.sqrt(MSE.sum() / n_pts)
             print(f"L2 error between true and approximate solution: {L2_error}")
 
@@ -710,4 +734,3 @@ class Geo_Net:
             )
 
             print(f"error to disk: {((xT - x0)**2 + (yT - y0)**2 - 1).sum() / n_pts}")
-

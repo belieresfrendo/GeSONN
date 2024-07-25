@@ -689,7 +689,7 @@ class Geo_Net:
             dist.directed_hausdorff(X_ex, X_net)[0],
         )
 
-    def plot_result(self, save_plots, n_kappas=2, n_kappas_for_optimality_condition=10):
+    def plot_result(self, save_plots, n_kappas=5, n_kappas_for_optimality_condition=10):
         makePlots.loss(self.loss_history, save_plots, self.fig_storage)
 
         kappa_list_solution = list(
@@ -728,7 +728,27 @@ class Geo_Net:
         if self.source_term == "one":
 
             def exact_solution(x, y, kappa):
-                return 0.75 * kappa - 0.25 * (x**2 + y**2)
+                n_pts = 10_000
+                theta = torch.linspace(
+                    0,
+                    2 * torch.pi,
+                    n_pts,
+                    requires_grad=True,
+                    dtype=torch.float64,
+                    device=device,
+                )[:, None]
+                x_ = self.rho_max * torch.cos(theta)
+                y_ = self.rho_max * torch.sin(theta)
+                kappa_ = kappa[0].item()*torch.ones_like(x_)
+                xT, yT = self.apply_symplecto(x_, y_, kappa_)
+
+                x0 = xT.sum() / n_pts
+                y0 = yT.sum() / n_pts
+
+                print(x0.item(), y0.item())
+
+                x, y = self.apply_symplecto(x, y, kappa)
+                return (2+kappa)/(4*kappa) - 0.25 * ((x - x0) ** 2 + (y - y0) ** 2)
 
             def error(x, y, kappa):
                 return torch.abs(exact_solution(x, y, kappa) - self.get_u(x, y, kappa))
@@ -795,8 +815,27 @@ class Geo_Net:
         return hausdorff_distances
 
     def get_L2_error_on_disk(self, kappas, n_pts=10_000):
+
         def exact_solution(x, y, kappa):
-            return 0.75 * kappa - 0.25 * (x**2 + y**2)
+            n_pts = 10_000
+            theta = torch.linspace(
+                0,
+                2 * torch.pi,
+                n_pts,
+                requires_grad=True,
+                dtype=torch.float64,
+                device=device,
+            )[:, None]
+            x_ = self.rho_max * torch.cos(theta)
+            y_ = self.rho_max * torch.sin(theta)
+            kappa_ = kappa[0].item()*torch.ones_like(x_)
+            xT, yT = self.apply_symplecto(x_, y_, kappa_)
+
+            x0 = xT.sum() / n_pts
+            y0 = yT.sum() / n_pts
+
+            x, y = self.apply_symplecto(x, y, kappa)
+            return (2+kappa)/(4*kappa) - 0.25 * ((x - x0) ** 2 + (y - y0) ** 2)
 
         def error(x, y, kappa):
             return torch.abs(exact_solution(x, y, kappa) - self.get_u(x, y, kappa))
