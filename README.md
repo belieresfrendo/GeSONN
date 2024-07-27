@@ -52,7 +52,7 @@ Feel free to contact me at *amaury.belieres@math.unistra.fr* if you'd like to co
 * [Amaury Bélières--Frendo](https://irma.math.unistra.fr/~belieres/)
 * [Victor Michel-Dansac](https://irma.math.unistra.fr/~micheldansac/)
 * [Yannick Privat](https://yannick-privat.perso.math.cnrs.fr/)
-* [Emmanuel Frank](https://irma.math.unistra.fr/~franck/)
+* [Emmanuel Franck](https://irma.math.unistra.fr/~franck/)
 
 ## To quote this project
 
