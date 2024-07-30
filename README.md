@@ -56,7 +56,8 @@ Feel free to contact me at *amaury.belieres@math.unistra.fr* if you'd like to co
 
 ## To quote this project
 
-Incoming...
+[![DOI](https://zenodo.org/badge/745015066.svg)](https://zenodo.org/doi/10.5281/zenodo.13133268)
+
 
 <!-- 
 
