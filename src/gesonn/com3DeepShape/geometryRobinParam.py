@@ -739,7 +739,7 @@ class Geo_Net:
                 )[:, None]
                 x_ = self.rho_max * torch.cos(theta)
                 y_ = self.rho_max * torch.sin(theta)
-                kappa_ = kappa[0].item()*torch.ones_like(x_)
+                kappa_ = kappa[0].item() * torch.ones_like(x_)
                 xT, yT = self.apply_symplecto(x_, y_, kappa_)
 
                 x0 = xT.sum() / n_pts
@@ -748,7 +748,9 @@ class Geo_Net:
                 print(x0.item(), y0.item())
 
                 x, y = self.apply_symplecto(x, y, kappa)
-                return (2+kappa)/(4*kappa) - 0.25 * ((x - x0) ** 2 + (y - y0) ** 2)
+                return (2 + kappa) / (4 * kappa) - 0.25 * (
+                    (x - x0) ** 2 + (y - y0) ** 2
+                )
 
             def error(x, y, kappa):
                 return torch.abs(exact_solution(x, y, kappa) - self.get_u(x, y, kappa))
@@ -764,6 +766,7 @@ class Geo_Net:
                 save_plots,
                 f"{self.fig_storage}_solution_error",
                 mu_list=kappa_list_solution,
+                colormap="gist_heat",
             )
 
     def get_hausdorff_distances_to_disk(self, kappas, n_pts=10_000):
@@ -815,7 +818,6 @@ class Geo_Net:
         return hausdorff_distances
 
     def get_L2_error_on_disk(self, kappas, n_pts=10_000):
-
         def exact_solution(x, y, kappa):
             n_pts = 10_000
             theta = torch.linspace(
@@ -828,14 +830,14 @@ class Geo_Net:
             )[:, None]
             x_ = self.rho_max * torch.cos(theta)
             y_ = self.rho_max * torch.sin(theta)
-            kappa_ = kappa[0].item()*torch.ones_like(x_)
+            kappa_ = kappa[0].item() * torch.ones_like(x_)
             xT, yT = self.apply_symplecto(x_, y_, kappa_)
 
             x0 = xT.sum() / n_pts
             y0 = yT.sum() / n_pts
 
             x, y = self.apply_symplecto(x, y, kappa)
-            return (2+kappa)/(4*kappa) - 0.25 * ((x - x0) ** 2 + (y - y0) ** 2)
+            return (2 + kappa) / (4 * kappa) - 0.25 * ((x - x0) ** 2 + (y - y0) ** 2)
 
         def error(x, y, kappa):
             return torch.abs(exact_solution(x, y, kappa) - self.get_u(x, y, kappa))

@@ -695,7 +695,7 @@ class Geo_Net:
             y0 = yT.sum() / n_pts
 
             def exact_solution(x, y, x0, y0):
-                x, y = self.apply_symplecto(x,y)
+                x, y = self.apply_symplecto(x, y)
                 return 0.25 * (3 - (x - x0) ** 2 - (y - y0) ** 2)
 
             def error(x, y, x0, y0):
@@ -709,6 +709,7 @@ class Geo_Net:
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
                 f"{self.fig_storage}_solution_error",
+                colormap="gist_heat",
             )
 
             self.make_collocation(n_pts)
