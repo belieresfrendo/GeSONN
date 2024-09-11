@@ -23,6 +23,7 @@ import time
 
 import torch
 import torch.nn as nn
+
 from gesonn.com1PINNs import boundary_conditions as bc
 
 # local imports
@@ -414,7 +415,6 @@ class Geo_Net:
             theta_border_collocation
         )
 
-
     def append_to_history(self, keys, values):
         for key, value in zip(keys, values):
             try:
@@ -623,6 +623,7 @@ class Geo_Net:
                 save_plots,
                 f"{self.fig_storage}_solution_error",
                 mu_list=mu_list_solution,
+                colormap="gist_heat",
             )
 
     def get_hausdorff_distances_to_disk(self, mus, n_pts=10_000):
