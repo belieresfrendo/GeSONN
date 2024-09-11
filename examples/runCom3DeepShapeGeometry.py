@@ -15,18 +15,18 @@ if __name__ == "__main__":
     # Parameters to be modified freely by the user
     # ==============================================================
 
-    train = True
-    # train = False
+    # train = True
+    train = False
 
     deepGeoDict = {
         "pde_learning_rate": 5e-3,
         "sympnet_learning_rate": 5e-3,
-        "layer_sizes": [2, 10, 20, 20, 10, 1],
-        "nb_of_networks": 2,
+        "layer_sizes": [2, 10, 20, 40, 20, 10, 1],
+        "nb_of_networks": 4,
         "networks_size": 4,
         "rho_min": 0,
         "rho_max": 1,
-        "file_name": "exp_jac_tan",
+        "file_name": "SIAM_exp_backup",
         "to_be_trained": True,
         "source_term": "exp",
         "boundary_condition": "homogeneous_dirichlet",
@@ -36,9 +36,9 @@ if __name__ == "__main__":
     epochs = 25_000
     n_collocation = 10_000
     new_training = False
-    new_training = True
+    # new_training = True
     save_plots = False
-    save_plots = True
+    # save_plots = True
 
     # ==============================================================
     # End of the modifiable area

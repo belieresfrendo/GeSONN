@@ -470,7 +470,9 @@ class Geo_Net:
             )
 
             if epoch % 500 == 0:
-                print(f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}")
+                print(
+                    f"epoch {epoch: 5d}: current loss = {self.loss.item():5.2e}, current optimality condition = {self.optimality_condition.item():5.2e}"
+                )
                 try:
                     self.save(
                         self.file_name,
@@ -616,6 +618,7 @@ class Geo_Net:
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
                 f"{self.fig_storage}_solution_error",
+                colormap="gist_heat",
             )
 
             self.make_collocation(n_pts)
@@ -677,6 +680,7 @@ class Geo_Net:
                 lambda x, y: self.apply_inverse_symplecto(x, y),
                 save_plots,
                 f"{self.fig_storage}_solution_error",
+                colormap="gist_heat",
             )
 
             self.make_collocation(n_pts)

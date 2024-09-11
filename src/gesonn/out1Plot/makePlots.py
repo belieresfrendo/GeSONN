@@ -1,14 +1,37 @@
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import torch
-from gesonn.ana1Tests.optimalShapes import translate_to_zero
 from matplotlib import rc
+
+from gesonn.ana1Tests.optimalShapes import translate_to_zero
 
 rc("font", **{"family": "serif", "serif": ["fontenc"], "size": 24})
 rc("text", usetex=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"torch loaded; device is {device}")
+
+
+def rainbow_desaturated():
+    import numpy as np
+    from matplotlib.colors import LinearSegmentedColormap
+
+    colors = np.empty((8, 3))
+
+    colors[0] = np.array((0.278431372549, 0.278431372549, 0.858823529412))
+    colors[1] = np.array((0.000000000000, 0.000000000000, 0.360784313725))
+    colors[2] = np.array((0.000000000000, 1.000000000000, 1.000000000000))
+    colors[3] = np.array((0.000000000000, 0.501960784314, 0.000000000000))
+    colors[4] = np.array((1.000000000000, 1.000000000000, 0.000000000000))
+    colors[5] = np.array((1.000000000000, 0.380392156863, 0.000000000000))
+    colors[6] = np.array((0.419607843137, 0.000000000000, 0.000000000000))
+    colors[7] = np.array((0.878431372549, 0.301960784314, 0.301960784314))
+
+    opacities = np.arange(8) / 7
+
+    list_for_colormap = [(opacities[i], colors[i]) for i in range(8)]
+
+    return LinearSegmentedColormap.from_list("rainbow desaturated", list_for_colormap)
 
 
 def loss(loss_history, save_plots, name):
@@ -83,12 +106,18 @@ def get_contours(
     apply_inverse_symplecto,
     n_visu=768,
     n_contour=250,
+    colormap="turbo",
 ):
     import numpy as np
 
     # measuring the min and max coordinates of the bounding box
     theta = torch.linspace(
-        0, 2 * np.pi, 10_000, dtype=torch.float64, requires_grad=True, device=device,
+        0,
+        2 * np.pi,
+        10_000,
+        dtype=torch.float64,
+        requires_grad=True,
+        device=device,
     )[:, None]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
@@ -125,12 +154,16 @@ def get_contours(
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     im = ax.contourf(
         x,
         y,
         u,
         n_contour,
-        cmap="turbo",
+        cmap=colormap,
         zorder=-9,
     )
 
@@ -150,6 +183,7 @@ def edp_contour(
     draw_contours=True,
     n_drawn_contours=10,
     fill=True,
+    colormap="turbo",
 ):
     fig, ax, im = get_contours(
         rho_min,
@@ -159,6 +193,7 @@ def edp_contour(
         apply_inverse_symplecto,
         n_visu,
         n_contour,
+        colormap,
     )
 
     if draw_contours:
@@ -194,6 +229,7 @@ def edp_contour_param(
     n_contour=250,
     draw_contours=True,
     n_drawn_contours=10,
+    colormap="turbo",
 ):
     import numpy as np
     import torch
@@ -252,12 +288,16 @@ def edp_contour_param(
         # draw the contours
         fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+        # create custom colormap, if needed
+        if colormap == "rainbow_desaturated":
+            colormap = rainbow_desaturated()
+
         im = ax.contourf(
             x,
             y,
             u,
             n_contour,
-            cmap="turbo",
+            cmap=colormap,
             zorder=-9,
         )
         if draw_contours:
@@ -294,6 +334,7 @@ def edp_contour_param_source(
     draw_contours=True,
     n_drawn_contours=10,
     mu_list=None,
+    colormap="turbo",
 ):
     import numpy as np
     import torch
@@ -309,7 +350,9 @@ def edp_contour_param_source(
 
     for mu in mu_list:
         # measuring the min and max coordinates of the bounding box
-        theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
+        theta = torch.linspace(
+            0, 2 * np.pi, 10_000, dtype=torch.float64, device=device
+        )[:, None]
         x = rho_max * torch.cos(theta)
         y = rho_max * torch.sin(theta)
         x, y = apply_symplecto(x, y, mu * torch.ones_like(x))
@@ -348,12 +391,16 @@ def edp_contour_param_source(
         # draw the contours
         fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+        # create custom colormap, if needed
+        if colormap == "rainbow_desaturated":
+            colormap = rainbow_desaturated()
+
         im = ax.contourf(
             x,
             y,
             u,
             n_contour,
-            cmap="turbo",
+            cmap=colormap,
             zorder=-9,
         )
 
@@ -407,6 +454,7 @@ def edp_contour_bernoulli(
     draw_contours=True,
     n_drawn_contours=10,
     inner_shape=None,
+    colormap="turbo",
 ):
     import numpy as np
     import torch
@@ -447,12 +495,16 @@ def edp_contour_bernoulli(
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     im = ax.contourf(
         x,
         y,
         u,
         n_contour,
-        cmap="turbo",
+        cmap=colormap,
         zorder=-9,
     )
 
@@ -520,7 +572,9 @@ def shape_error(
     import torch
 
     # measuring the min and max coordinates of the bounding box
-    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[:, None]
+    theta = torch.linspace(0, 2 * np.pi, 10_000, dtype=torch.float64, device=device)[
+        :, None
+    ]
     x = rho_max * torch.cos(theta)
     y = rho_max * torch.sin(theta)
     xT_pred, yT_pred = apply_symplecto(x, y)
@@ -663,7 +717,9 @@ def param_shape_superposition(
     plt.show()
 
 
-def optimality_condition(get_optimality_condition, save_plots, name, inner_shape=None):
+def optimality_condition(
+    get_optimality_condition, save_plots, name, inner_shape=None, colormap="turbo"
+):
     n_pts = 10_000
 
     optimality_condition, xT, yT = get_optimality_condition(n_pts)
@@ -675,12 +731,16 @@ def optimality_condition(get_optimality_condition, save_plots, name, inner_shape
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     im = ax.scatter(
         xT.detach().cpu(),
         yT.detach().cpu(),
         s=1,
         c=optimality_condition.detach().cpu(),
-        cmap="turbo",
+        cmap=colormap,
     )
 
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
@@ -697,7 +757,10 @@ def optimality_condition(get_optimality_condition, save_plots, name, inner_shape
 
     print(f"Variance of the optimality condition: {optimality_condition.var()}")
 
-def dn_u(get_limit_condition, rho_max, save_plots, name, inner_shape=None):
+
+def dn_u(
+    get_limit_condition, rho_max, save_plots, name, inner_shape=None, colormap="turbo"
+):
     n_pts = 10_000
     shape = (n_pts, 1)
 
@@ -707,12 +770,9 @@ def dn_u(get_limit_condition, rho_max, save_plots, name, inner_shape=None):
         )
         return min_value + (max_value - min_value) * random_numbers
 
-    theta = random(
-        0, 2 * torch.math.pi, shape, requires_grad=True
-    )
+    theta = random(0, 2 * torch.math.pi, shape, requires_grad=True)
     x_border = rho_max * torch.cos(theta)
     y_border = rho_max * torch.sin(theta)
-
 
     dn_u, xT, yT = get_limit_condition(x_border, y_border, theta)
     xT_min, xT_max = xT.min().item(), xT.max().item()
@@ -723,12 +783,16 @@ def dn_u(get_limit_condition, rho_max, save_plots, name, inner_shape=None):
     # draw the contours
     _, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     im = ax.scatter(
         xT.detach().cpu(),
         yT.detach().cpu(),
         s=1,
         c=dn_u.detach().cpu(),
-        cmap="turbo",
+        cmap=colormap,
     )
 
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
@@ -743,8 +807,15 @@ def dn_u(get_limit_condition, rho_max, save_plots, name, inner_shape=None):
 
     plt.show()
 
+
 def optimality_condition_param(
-    mu_min, mu_max, get_optimality_condition, save_plots, name, mu_list=None
+    mu_min,
+    mu_max,
+    get_optimality_condition,
+    save_plots,
+    name,
+    mu_list=None,
+    colormap="turbo",
 ):
     if mu_list is None:
         mu_list = [
@@ -767,6 +838,10 @@ def optimality_condition_param(
     # draw the contours
     fig, ax = plt.subplots(1, 1, figsize=(10 * lx / ly, 10 * ly / lx))
 
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     for mu in mu_list:
         optimality_condition, xT, yT = get_optimality_condition(mu)
         xT_min, xT_max = xT.min().item(), xT.max().item()
@@ -776,7 +851,7 @@ def optimality_condition_param(
             yT.detach().cpu(),
             s=1,
             c=optimality_condition.detach().cpu(),
-            cmap="turbo",
+            cmap=colormap,
         )
 
     add_colorbar(im, format=ticker.FuncFormatter(fmt))
@@ -955,15 +1030,20 @@ def deep_shape_error(
     plt.show()
 
 
-def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None):
+def edp_shape_error(edp, x, y, u, v, save_plots, name, title=None, colormap="turbo"):
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
+
+    # create custom colormap, if needed
+    if colormap == "rainbow_desaturated":
+        colormap = rainbow_desaturated()
+
     im = ax.scatter(
         x,
         y,
         s=1,
         c=edp,
         label="PDE GeSONN prediction",
-        cmap="gist_ncar",
+        cmap=colormap,
     )
     ax.scatter(
         u,
